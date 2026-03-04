@@ -18,6 +18,32 @@ class SuggestDoctorView(APIView):
         return ok(result)
 
 
+class CandidatesListView(APIView):
+    """GET /api/allocation/candidates/{encounter_id}/"""
+    permission_classes = [IsAuthenticatedViaJWT]
+
+    def get(self, request, encounter_id):
+        from core.models import Encounter, User
+        from core.serializers import UserSerializer
+        from allocation.engine import get_candidate_doctors
+        
+        try:
+            enc = Encounter.objects.get(pk=encounter_id, is_deleted=False)
+        except Encounter.DoesNotExist:
+            return err("Encounter not found", 404)
+            
+        candidates = get_candidate_doctors(str(enc.department_id))
+        
+        # Prepare response with workload data
+        data = []
+        for c in candidates:
+            doc_data = UserSerializer(c["doctor"]).data
+            doc_data["workload_score"] = c["workload"]
+            data.append(doc_data)
+            
+        return ok(data)
+
+
 class ConfirmAllocationView(APIView):
     """POST /api/allocation/confirm/"""
     permission_classes = [IsNurseOrAdmin]

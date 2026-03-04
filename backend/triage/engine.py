@@ -17,7 +17,7 @@ logger = logging.getLogger("acuvera.triage.engine")
 # -------------------------------------------------------------------
 # Constants (configurable via department.priority_weight_config)
 # -------------------------------------------------------------------
-MAX_RISK_SCORE = 999
+MAX_RISK_SCORE = 100
 DEFAULT_CRITICAL_GCS = 8
 DEFAULT_CRITICAL_SPO2 = 85
 DEFAULT_AGING_MINUTES_UNIT = 10

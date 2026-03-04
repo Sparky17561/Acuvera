@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { Routes, Route, Navigate, useNavigate } from 'react-router-dom'
 import Shell from '../../components/Shell'
 import { EncounterAPI, PatientAPI, TriageAPI, AllocationAPI, EscalationAPI, AssessmentAPI } from '../../api/client'
+import { Stethoscope, UserPlus, UserCog, FileText, AlertTriangle, RefreshCw } from 'lucide-react'
 import { saveDraft, getAllDrafts, deleteDraft } from '../../store/offlineStore'
 
 // ─── Helpers ──────────────────────────────────────────────────
@@ -71,7 +72,7 @@ function ReportModal({ encounter, onClose }) {
                                 </div>
                                 <div style={{
                                     background: 'var(--surface2)', borderRadius: 8, padding: '1rem',
-                                    fontSize: '0.88rem', lineHeight: 1.75, color: 'var(--text)',
+                                    lineHeight: 1.75, color: 'var(--text)',
                                     whiteSpace: 'pre-wrap', marginBottom: '1rem',
                                     fontFamily: isLLMReport ? 'inherit' : 'monospace',
                                     fontSize: isLLMReport ? '0.9rem' : '0.82rem',
@@ -246,7 +247,7 @@ function TriageModal({ encounter, onClose, onResult }) {
             <div className="modal">
                 <div className="modal-header">
                     <div className="modal-title">🔬 Triage Analysis — {encounter.patient_detail?.name || 'Patient'}</div>
-                    <button className="btn btn-ghost" style={{ padding: '0.3rem 0.5rem' }} onClick={onClose}>✕</button>
+                    <button type="button" className="btn btn-ghost" style={{ padding: '0.3rem 0.5rem' }} onClick={onClose}>✕</button>
                 </div>
 
                 {result ? (
@@ -271,8 +272,8 @@ function TriageModal({ encounter, onClose, onResult }) {
                             {result.reasons.map((r, i) => <li key={i}>{r}</li>)}
                         </ul>
                         <div className="modal-footer">
-                            <button className="btn btn-ghost" onClick={printSlip}>🖨️ Print Slip</button>
-                            <button className="btn btn-primary" onClick={onClose}>Done ✓</button>
+                            <button type="button" className="btn btn-ghost" onClick={printSlip}>🖨️ Print Slip</button>
+                            <button type="button" className="btn btn-primary" onClick={onClose}>Done ✓</button>
                         </div>
                     </div>
                 ) : (
@@ -460,12 +461,144 @@ function NewPatientModal({ onClose, onCreated }) {
     )
 }
 
+
+// ─── Doctor Assignment Modal ──────────────────────────────────
+function DoctorAssignmentModal({ encounter, onClose, onAssigned }) {
+    const [doctors, setDoctors] = useState([])
+    const [loading, setLoading] = useState(true)
+    const [assigning, setAssigning] = useState(null)
+
+    const isAlreadyAssigned = !!encounter.assigned_doctor
+    const isAccepted = encounter.status === 'in_progress'
+    const currentDoctorId = encounter.assigned_doctor ? String(encounter.assigned_doctor) : null
+
+    useEffect(() => {
+        AllocationAPI.candidates(encounter.id)
+            .then(setDoctors)
+            .catch(() => setDoctors([]))
+            .finally(() => setLoading(false))
+    }, [encounter.id])
+
+    const handleAssign = async (docId) => {
+        setAssigning(docId)
+        const isReassign = isAlreadyAssigned && String(docId) !== currentDoctorId
+        try {
+            await AllocationAPI.confirm({
+                encounter_id: encounter.id,
+                to_doctor_id: docId,
+                reason: isReassign ? 'manual_nurse_reassignment' : 'manual_nurse_assignment'
+            })
+            onAssigned()
+            onClose()
+        } catch (err) {
+            alert('Assignment failed: ' + (err.response?.data?.errors || err.message))
+        } finally {
+            setAssigning(null)
+        }
+    }
+
+    return (
+        <div className="modal-backdrop" onClick={e => e.target === e.currentTarget && onClose()}>
+            <div className="modal" style={{ maxWidth: 500 }}>
+                <div className="modal-header">
+                    <div className="modal-title">
+                        👨‍⚕️ {isAlreadyAssigned ? 'Reassign Doctor' : 'Assign Doctor'} — {encounter.patient_detail?.name}
+                    </div>
+                    <button type="button" className="btn btn-ghost" onClick={onClose} style={{ padding: '0.3rem 0.5rem' }}>✕</button>
+                </div>
+
+                {/* Info banner for already accepted encounters */}
+                {isAccepted && (
+                    <div style={{ margin: '0.75rem 1rem 0', padding: '0.6rem 0.9rem', background: 'rgba(234,179,8,0.1)', border: '1px solid rgba(234,179,8,0.3)', borderRadius: 8, fontSize: '0.8rem', color: '#eab308' }}>
+                        ⚠️ This encounter is already <strong>in progress</strong> — reassignment is disabled once a doctor has accepted.
+                    </div>
+                )}
+
+                {isAlreadyAssigned && !isAccepted && (
+                    <div style={{ margin: '0.75rem 1rem 0', padding: '0.6rem 0.9rem', background: 'rgba(59,130,246,0.08)', border: '1px solid rgba(59,130,246,0.2)', borderRadius: 8, fontSize: '0.8rem', color: '#60a5fa' }}>
+                        ℹ️ Patient is assigned but not yet accepted. You can reassign to a different doctor.
+                    </div>
+                )}
+
+                <div className="modal-body" style={{ padding: '1rem' }}>
+                    {loading ? (
+                        <div className="loading-center" style={{ padding: '2rem' }}><div className="spinner" /></div>
+                    ) : doctors.length === 0 ? (
+                        <p style={{ color: 'var(--text-muted)', textAlign: 'center', padding: '1.5rem' }}>
+                            No available doctors found in this department.
+                        </p>
+                    ) : (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                            {doctors.map(doc => {
+                                const isCurrentDoc = currentDoctorId && String(doc.id) === currentDoctorId
+                                return (
+                                    <div key={doc.id} style={{
+                                        padding: '1rem',
+                                        display: 'flex',
+                                        justifyContent: 'space-between',
+                                        alignItems: 'center',
+                                        border: isCurrentDoc ? '1px solid rgba(34,197,94,0.4)' : '1px solid var(--border)',
+                                        background: isCurrentDoc ? 'rgba(34,197,94,0.07)' : 'var(--surface2)',
+                                        borderRadius: 12,
+                                        transition: 'all 0.15s ease',
+                                    }}>
+                                        <div>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontWeight: 600, fontSize: '1rem' }}>
+                                                Dr. {doc.full_name}
+                                                {isCurrentDoc && (
+                                                    <span style={{ fontSize: '0.65rem', fontWeight: 800, letterSpacing: '0.08em', background: 'rgba(34,197,94,0.15)', color: '#22c55e', border: '1px solid rgba(34,197,94,0.3)', borderRadius: 6, padding: '0.1rem 0.45rem', textTransform: 'uppercase' }}>
+                                                        ✓ Assigned
+                                                    </span>
+                                                )}
+                                            </div>
+                                            <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: '0.25rem' }}>
+                                                Workload Score: <strong style={{ color: doc.workload_score > 5 ? 'var(--warn)' : 'var(--success)' }}>
+                                                    {doc.workload_score}
+                                                </strong>
+                                                <span style={{ margin: '0 0.5rem' }}>•</span>
+                                                Status: <span className="tag" style={{ textTransform: 'capitalize' }}>{doc.availability_state}</span>
+                                            </div>
+                                        </div>
+                                        {isCurrentDoc ? (
+                                            /* Current doctor — show a muted button, disabled if accepted */
+                                            <button
+                                                className="btn btn-ghost"
+                                                style={{ padding: '0.4rem 0.8rem', fontSize: '0.85rem', opacity: 0.5, cursor: 'default' }}
+                                                disabled
+                                            >
+                                                Current
+                                            </button>
+                                        ) : (
+                                            <button
+                                                className={isAlreadyAssigned ? 'btn btn-warn' : 'btn btn-primary'}
+                                                style={{ padding: '0.4rem 0.8rem', fontSize: '0.85rem' }}
+                                                disabled={assigning === doc.id || isAccepted}
+                                                onClick={() => handleAssign(doc.id)}
+                                            >
+                                                {assigning === doc.id ? '...' : isAlreadyAssigned ? '⇄ Reassign' : 'Assign'}
+                                            </button>
+                                        )}
+                                    </div>
+                                )
+                            })}
+                        </div>
+                    )}
+                </div>
+                <div className="modal-footer">
+                    <button type="button" className="btn btn-ghost" onClick={onClose}>Cancel</button>
+                </div>
+            </div>
+        </div>
+    )
+}
+
 // ─── Queue Page ───────────────────────────────────────────────
 function QueuePage() {
     const [encounters, setEncounters] = useState([])
     const [loading, setLoading] = useState(true)
     const [showNewPatient, setShowNewPatient] = useState(false)
     const [triageEnc, setTriageEnc] = useState(null)
+    const [assignEnc, setAssignEnc] = useState(null)
     const [reportEnc, setReportEnc] = useState(null)
 
     // Offline State
@@ -531,26 +664,10 @@ function QueuePage() {
         } catch (err) { alert('Error: ' + (err.response?.data?.errors || err.message)) }
     }
 
-    const suggestAndAssign = async (enc) => {
-        try {
-            const res = await AllocationAPI.suggest(enc.id)
-            if (!res.success) { alert(res.error || 'No available doctors'); return }
-            if (!window.confirm(`Assign to Dr. ${res.doctor_name} (workload: ${res.workload_score})?`)) return
-            await AllocationAPI.confirm({ encounter_id: enc.id, to_doctor_id: res.doctor_id })
-            load()
-        } catch (err) { alert('Error: ' + (err.response?.data?.errors || err.message)) }
-    }
+    const suggestAndAssign = (enc) => setAssignEnc(enc)
 
     // Reassign for starving patients — same logic but labels as "reassign"
-    const reassign = async (enc) => {
-        try {
-            const res = await AllocationAPI.suggest(enc.id)
-            if (!res.success) { alert('No available doctors found for reassignment'); return }
-            if (!window.confirm(`Reassign starving patient to Dr. ${res.doctor_name}?`)) return
-            await AllocationAPI.confirm({ encounter_id: enc.id, to_doctor_id: res.doctor_id })
-            load()
-        } catch (err) { alert('Error: ' + (err.response?.data?.errors || err.message)) }
-    }
+    const reassign = (enc) => setAssignEnc(enc)
 
     // Compute starvation threshold per encounter
     const isStarving = (enc) => {
@@ -624,14 +741,25 @@ function QueuePage() {
                                     <td><PriorityBadge priority={enc.priority} /></td>
                                     <td style={{ fontWeight: 600 }}>{enc.risk_score}</td>
                                     <td>
-                                        {enc.confidence_score != null ? (
-                                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                                                <div className="confidence-bar-wrap" style={{ background: 'var(--surface2)', borderRadius: 4, height: 6, width: 60 }}>
-                                                    <div style={{ height: '100%', borderRadius: 4, background: enc.confidence_score >= 70 ? 'var(--success)' : 'var(--warn)', width: `${enc.confidence_score}%` }} />
+                                        {enc.confidence_score != null ? (() => {
+                                            const s = enc.confidence_score
+                                            const color = s >= 80 ? '#22c55e' : s >= 60 ? '#eab308' : s >= 40 ? '#f97316' : '#ef4444'
+                                            const label = s >= 80 ? 'High' : s >= 60 ? 'Moderate' : s >= 40 ? 'Low' : 'Very Low'
+                                            return (
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                                    <div style={{ background: 'var(--surface2)', borderRadius: 4, height: 6, width: 64, overflow: 'hidden' }}>
+                                                        <div style={{
+                                                            height: '100%', borderRadius: 4,
+                                                            width: `${s}%`,
+                                                            background: `linear-gradient(90deg, ${color}99, ${color})`,
+                                                            boxShadow: `0 0 6px ${color}66`,
+                                                            transition: 'width 0.4s ease',
+                                                        }} />
+                                                    </div>
+                                                    <span style={{ fontSize: '0.72rem', fontWeight: 700, color }} title={label}>{s}%</span>
                                                 </div>
-                                                <span style={{ fontSize: '0.75rem' }}>{enc.confidence_score}%</span>
-                                            </div>
-                                        ) : <span style={{ color: 'var(--text-muted)' }}>—</span>}
+                                            )
+                                        })() : <span style={{ color: 'var(--text-muted)' }}>—</span>}
                                     </td>
                                     <td style={{ color: enc.assigned_doctor_detail ? 'var(--text)' : 'var(--text-muted)' }}>
                                         {enc.assigned_doctor_detail?.full_name || 'Unassigned'}
@@ -640,21 +768,31 @@ function QueuePage() {
                                     <td>
                                         <div style={{ display: 'flex', gap: '0.35rem', flexWrap: 'wrap' }}>
                                             <button className="btn btn-ghost" style={{ padding: '0.3rem 0.5rem', fontSize: '0.75rem' }}
-                                                onClick={() => setTriageEnc(enc)}>🔬 Triage</button>
+                                                onClick={() => setTriageEnc(enc)}>
+                                                <Stethoscope size={14} /> Triage
+                                            </button>
                                             {!enc.assigned_doctor_detail && (
                                                 <button className="btn btn-success" style={{ padding: '0.3rem 0.5rem', fontSize: '0.75rem' }}
-                                                    onClick={() => suggestAndAssign(enc)}>👨‍⚕️ Assign</button>
+                                                    onClick={() => suggestAndAssign(enc)}>
+                                                    <UserPlus size={14} /> Assign
+                                                </button>
                                             )}
                                             {isStarving(enc) && enc.assigned_doctor_detail && (
-                                                <button className="btn btn-warn" style={{ padding: '0.3rem 0.5rem', fontSize: '0.75rem', background: 'rgba(234,179,8,0.15)', color: 'var(--warn)', border: '1px solid var(--warn)' }}
-                                                    onClick={() => reassign(enc)}>⚠️ Reassign</button>
+                                                <button className="btn btn-warn" style={{ padding: '0.3rem 0.5rem', fontSize: '0.75rem' }}
+                                                    onClick={() => reassign(enc)}>
+                                                    <UserCog size={14} /> Reassign
+                                                </button>
                                             )}
                                             {enc.assessment_completed && (
-                                                <button className="btn btn-primary" style={{ padding: '0.3rem 0.5rem', fontSize: '0.75rem' }}
-                                                    onClick={() => setReportEnc(enc)}>📋 Report</button>
+                                                <button className="btn btn-indigo" style={{ padding: '0.3rem 0.5rem', fontSize: '0.75rem' }}
+                                                    onClick={() => setReportEnc(enc)}>
+                                                    <FileText size={14} /> Report
+                                                </button>
                                             )}
-                                            <button className="btn btn-danger" style={{ padding: '0.3rem 0.5rem', fontSize: '0.75rem' }}
-                                                onClick={() => triggerCodeBlue(enc)}>🚨 Code Blue</button>
+                                            <button className="btn btn-blue" style={{ padding: '0.3rem 0.5rem', fontSize: '0.75rem' }}
+                                                onClick={() => triggerCodeBlue(enc)}>
+                                                <AlertTriangle size={14} /> Code Blue
+                                            </button>
                                         </div>
                                     </td>
                                 </tr>
@@ -668,7 +806,19 @@ function QueuePage() {
                 <NewPatientModal onClose={() => setShowNewPatient(false)} onCreated={(enc) => { setEncounters(e => [enc, ...e]); setTriageEnc(enc) }} />
             )}
             {triageEnc && (
-                <TriageModal encounter={triageEnc} onClose={() => setTriageEnc(null)} onResult={() => { setTimeout(load, 1000) }} />
+                <TriageModal 
+                    key={`triage-${triageEnc.id}`}
+                    encounter={triageEnc} 
+                    onClose={() => setTriageEnc(null)} 
+                    onResult={() => { setTimeout(load, 1000) }} 
+                />
+            )}
+            {assignEnc && (
+                <DoctorAssignmentModal 
+                    encounter={assignEnc} 
+                    onClose={() => setAssignEnc(null)} 
+                    onAssigned={load} 
+                />
             )}
             {reportEnc && (
                 <ReportModal encounter={reportEnc} onClose={() => setReportEnc(null)} />

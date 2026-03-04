@@ -52,6 +52,7 @@ export const TriageAPI = {
 
 export const AllocationAPI = {
     suggest: (encounterId) => api.post(`/allocation/suggest/${encounterId}/`).then(r => r.data.data),
+    candidates: (encounterId) => api.get(`/allocation/candidates/${encounterId}/`).then(r => r.data.data),
     confirm: (data) => api.post('/allocation/confirm/', data).then(r => r.data.data),
     respond: (data) => api.post('/allocation/respond/', data).then(r => r.data.data),
     refer: (data) => api.post('/allocation/refer/', data).then(r => r.data.data),
@@ -77,6 +78,10 @@ export const AdminAPI = {
     staffList: (params) => api.get('/admin/staff/', { params }).then(r => r.data.data),
     updateStaff: (id, data) => api.patch(`/admin/staff/${id}/`, data).then(r => r.data.data),
     deleteStaff: (id) => api.delete(`/admin/staff/${id}/`).then(r => r.data.data),
+    // Department Management
+    createDepartment: (data) => api.post('/departments/', data).then(r => r.data.data),
+    updateDepartment: (id, data) => api.patch(`/departments/${id}/`, data).then(r => r.data.data),
+    deleteDepartment: (id) => api.delete(`/departments/${id}/`).then(r => r.data.data),
 }
 
 export const AssessmentAPI = {

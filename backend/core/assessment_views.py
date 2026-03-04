@@ -57,6 +57,10 @@ class AssessmentView(APIView):
         if assessment.completed_at:
             return err("Assessment already completed.", 409)
 
+        # Update doctor if case was referred/reassigned
+        if not created and str(assessment.doctor_id) != str(request.acuvera_user.id):
+            assessment.doctor = request.acuvera_user
+
         # Update fields
         notes = request.data.get("notes")
         if notes is not None:
@@ -99,16 +103,21 @@ class CompleteAssessmentView(APIView):
         except Encounter.DoesNotExist:
             return err("Encounter not found.", 404)
 
-        try:
-            assessment = enc.assessment
-        except Assessment.DoesNotExist:
-            return err("No active assessment found. Start an assessment first.", 404)
+        if enc.assigned_doctor_id and str(enc.assigned_doctor_id) != str(request.acuvera_user.id):
+            return err("Only the assigned doctor can complete this assessment.", 403)
+
+        # Create if not exists (e.g. if previous doctor never saved notes)
+        assessment, created = Assessment.objects.get_or_create(
+            encounter=enc,
+            defaults={"doctor": request.acuvera_user},
+        )
 
         if assessment.completed_at:
             return err("Assessment already completed.", 409)
 
-        if str(assessment.doctor_id) != str(request.acuvera_user.id):
-            return err("Only the assessing doctor can complete this session.", 403)
+        # Take over doctor field if case was referred
+        if not created and str(assessment.doctor_id) != str(request.acuvera_user.id):
+            assessment.doctor = request.acuvera_user
 
         # Final notes save
         final_notes = request.data.get("notes", assessment.notes)

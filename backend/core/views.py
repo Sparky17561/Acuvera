@@ -166,6 +166,10 @@ class EncounterListCreateView(APIView):
         status_filter = request.query_params.get("status")
         if status_filter:
             qs = qs.filter(status=status_filter)
+        
+        doctor_id = request.query_params.get("assigned_doctor")
+        if doctor_id:
+            qs = qs.filter(assigned_doctor_id=doctor_id)
 
         # Queue ordering: priority asc (critical first), then risk_score desc, then created_at asc
         qs = qs.order_by("created_at")  # base ordering; priority sort applied in Python below
@@ -270,12 +274,59 @@ class EncounterAssignView(APIView):
 
 
 class DepartmentListView(APIView):
-    """GET /api/departments/ — list all active departments."""
+    """GET /api/departments/ — list all active departments. POST /api/departments/ — create new (Admin)."""
     permission_classes = [IsAuthenticatedViaJWT]
 
     def get(self, request):
         depts = Department.objects.filter(is_active=True).order_by("name")
         return ok(DepartmentSerializer(depts, many=True).data)
+
+    def post(self, request):
+        if request.acuvera_user.role != "admin":
+            return err("Forbidden.", 403)
+        serializer = DepartmentSerializer(data=request.data)
+        if not serializer.is_valid():
+            return err(serializer.errors, 400)
+        dept = serializer.save()
+        log_audit("department.create", "department", dept.id, request.acuvera_user, None, model_snapshot(dept), request)
+        return ok(serializer.data, status=201)
+
+
+class DepartmentDetailView(APIView):
+    """GET/PATCH/DELETE /api/departments/{id}/"""
+    permission_classes = [IsAdmin]
+
+    def get(self, request, pk):
+        try:
+            dept = Department.objects.get(pk=pk)
+        except Department.DoesNotExist:
+            return err("Department not found.", 404)
+        return ok(DepartmentSerializer(dept).data)
+
+    def patch(self, request, pk):
+        try:
+            dept = Department.objects.get(pk=pk)
+        except Department.DoesNotExist:
+            return err("Department not found.", 404)
+
+        pre = model_snapshot(dept)
+        serializer = DepartmentSerializer(dept, data=request.data, partial=True)
+        if not serializer.is_valid():
+            return err(serializer.errors, 400)
+        
+        dept = serializer.save()
+        log_audit("department.update", "department", dept.id, request.acuvera_user, pre, model_snapshot(dept), request)
+        return ok(serializer.data)
+
+    def delete(self, request, pk):
+        """Soft delete: toggle is_active"""
+        try:
+            dept = Department.objects.get(pk=pk)
+            dept.is_active = not dept.is_active
+            dept.save()
+            return ok({"detail": "Status toggled", "is_active": dept.is_active})
+        except Department.DoesNotExist:
+            return err("Department not found.", 404)
 
 
 class DoctorListView(APIView):

@@ -43,12 +43,29 @@ class TriageDataSerializer(serializers.ModelSerializer):
         read_only_fields = ["id", "encounter", "llm_processed_json", "data_completeness_ratio", "created_at"]
 
 
+class AssessmentSerializer(serializers.ModelSerializer):
+    doctor_name = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Assessment
+        fields = [
+            "id", "encounter", "doctor", "doctor_name",
+            "notes", "media_json", "report_text",
+            "started_at", "completed_at",
+        ]
+        read_only_fields = ["id", "encounter", "doctor", "started_at", "completed_at", "report_text"]
+
+    def get_doctor_name(self, obj):
+        return obj.doctor.full_name if obj.doctor else None
+
+
 class EncounterSerializer(serializers.ModelSerializer):
     patient_detail = PatientSerializer(source="patient", read_only=True)
     triage_data = TriageDataSerializer(read_only=True)
     assigned_doctor_detail = UserSerializer(source="assigned_doctor", read_only=True)
     has_assessment = serializers.SerializerMethodField()
     assessment_completed = serializers.SerializerMethodField()
+    assessment_detail = AssessmentSerializer(source="assessment", read_only=True)
 
     class Meta:
         model = Encounter
@@ -58,7 +75,7 @@ class EncounterSerializer(serializers.ModelSerializer):
             "status", "triage_stage", "priority", "risk_score", "confidence_score",
             "assigned_doctor", "assigned_doctor_detail", "rejection_count", "version",
             "notes", "is_deleted", "created_at", "updated_at",
-            "triage_data", "has_assessment", "assessment_completed",
+            "triage_data", "has_assessment", "assessment_completed", "assessment_detail",
         ]
         read_only_fields = ["id", "risk_score", "confidence_score", "version", "created_at", "updated_at"]
 
@@ -91,19 +108,3 @@ class HospitalConfigSerializer(serializers.ModelSerializer):
     class Meta:
         model = HospitalConfig
         fields = "__all__"
-
-
-class AssessmentSerializer(serializers.ModelSerializer):
-    doctor_name = serializers.SerializerMethodField()
-
-    class Meta:
-        model = Assessment
-        fields = [
-            "id", "encounter", "doctor", "doctor_name",
-            "notes", "media_json", "report_text",
-            "started_at", "completed_at",
-        ]
-        read_only_fields = ["id", "encounter", "doctor", "started_at", "completed_at", "report_text"]
-
-    def get_doctor_name(self, obj):
-        return obj.doctor.full_name if obj.doctor else None

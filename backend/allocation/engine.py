@@ -82,8 +82,9 @@ def try_assign_doctor(encounter_id: str, doctor_id: str, reason: str = "auto_ass
             doctor = User.objects.get(pk=doctor_id, is_active=True)
 
             if enc.assigned_doctor_id and enc.status not in ("waiting",):
-                logger.info("Encounter %s already assigned to %s — skipping", encounter_id, enc.assigned_doctor_id)
-                return False
+                if reason not in ("doctor_referral", "manual_confirm", "manual_nurse_reassignment"):
+                    logger.info("Encounter %s already assigned to %s — skipping", encounter_id, enc.assigned_doctor_id)
+                    return False
 
             pre = model_snapshot(enc)
             old_doctor_id = enc.assigned_doctor_id

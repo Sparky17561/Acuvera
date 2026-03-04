@@ -4,7 +4,7 @@ from core.views import (
     WhoAmIView, RegisterUserView, LoginView,
     PatientListCreateView, PatientDetailView,
     EncounterListCreateView, EncounterDetailView, EncounterAssignView,
-    DepartmentListView, DoctorListView, UserAvailabilityView,
+    DepartmentListView, DepartmentDetailView, DoctorListView, UserAvailabilityView,
     StaffListView, StaffDetailView,
 )
 from core.assessment_views import AssessmentView, CompleteAssessmentView
@@ -19,6 +19,7 @@ urlpatterns = [
     path("encounters/<uuid:pk>/", EncounterDetailView.as_view()),
     path("encounters/<uuid:pk>/assign/", EncounterAssignView.as_view()),
     path("departments/", DepartmentListView.as_view()),
+    path("departments/<uuid:pk>/", DepartmentDetailView.as_view()),
     path("doctors/", DoctorListView.as_view()),
     path("users/<uuid:pk>/availability/", UserAvailabilityView.as_view()),
     

@@ -110,6 +110,10 @@ def acknowledge_escalation(event_id: str, acknowledging_doctor=None, request=Non
         event.sla_breached = sla_breached
         event.save()
 
+        # [FIX] Transition encounter from 'escalated' -> 'in_progress' so doctor can assess
+        from core.models import Encounter
+        Encounter.objects.filter(pk=event.encounter_id, status="escalated").update(status="in_progress")
+
         if sla_breached:
             logger.error(
                 "SLA BREACHED: escalation=%s type=%s response_time=%ds threshold=%ds",

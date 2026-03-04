@@ -53,6 +53,18 @@ class JWTAuthMiddleware(MiddlewareMixin):
 
         # Normal JWT validation
         token = self._extract_token(request)
+        
+        # Dev bypass — allow bypassing via header if enabled in settings
+        if settings.BYPASS_AUTH:
+            bypass_id = request.META.get("HTTP_X_BYPASS_USER_ID")
+            if bypass_id:
+                from core.models import User
+                try:
+                    request.acuvera_user = User.objects.get(pk=bypass_id, is_active=True)
+                    return None
+                except User.DoesNotExist:
+                    pass
+
         if not token:
             return JsonResponse(
                 {"meta": {}, "data": None, "errors": ["Authentication required"]},

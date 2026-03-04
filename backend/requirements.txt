@@ -25,3 +25,4 @@ python-json-logger==2.0.7
 
 # API / serialization
 djangorestframework-simplejwt==5.3.1
+dj-database-url==2.1.0

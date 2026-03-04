@@ -1,7 +1,8 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { Routes, Route, Navigate } from 'react-router-dom'
 import Shell from '../../components/Shell'
-import { EncounterAPI, AllocationAPI, EscalationAPI, AdminAPI, AssessmentAPI } from '../../api/client'
+import { EncounterAPI, PatientAPI, TriageAPI, AllocationAPI, EscalationAPI, AssessmentAPI } from '../../api/client'
+import { Stethoscope, CheckCircle, AlertTriangle, Repeat, XCircle, Heart, Activity, Brain, Target, Clock, MapPin, ClipboardList, History, LayoutDashboard, ChevronRight, Info, RefreshCw } from 'lucide-react'
 import { useAuthStore } from '../../store/authStore'
 
 // ─── Escalation Alert Banner ─────────────────────────────────────────────
@@ -233,10 +234,10 @@ function ReferModal({ encounter, currentUserId, onClose, onDone }) {
         ]).then(([sug, docs]) => {
             setSuggestion(sug)
             // Exclude self from both suggestion and list
-            const filtered = (Array.isArray(docs) ? docs : []).filter(d => d.id !== currentUserId)
+            const filtered = (Array.isArray(docs) ? docs : []).filter(d => String(d.id) !== String(currentUserId))
             setDoctors(filtered)
             // Pre-select suggested doctor only if it's not self
-            if (sug?.doctor_id && sug.doctor_id !== currentUserId) setSelectedDoc(sug.doctor_id)
+            if (sug?.doctor_id && String(sug.doctor_id) !== String(currentUserId)) setSelectedDoc(sug.doctor_id)
             setSuggesting(false)
         })
     }, [encounter.id, encounter.department, currentUserId])
@@ -265,7 +266,7 @@ function ReferModal({ encounter, currentUserId, onClose, onDone }) {
                     <div className="loading-center" style={{ height: 80 }}><div className="spinner" /></div>
                 ) : (
                     <>
-                        {suggestion?.success && suggestion.doctor_id !== currentUserId && (
+                        {suggestion?.success && String(suggestion.doctor_id) !== String(currentUserId) && (
                             <div style={{
                                 background: 'rgba(59,130,246,0.1)', border: '1px solid rgba(59,130,246,0.3)',
                                 borderRadius: 8, padding: '0.75rem 1rem', marginBottom: '1rem', fontSize: '0.85rem',
@@ -493,6 +494,7 @@ function AssessmentModal({ encounter, onClose, onDone }) {
 function MyCasesPage() {
     const { user } = useAuthStore()
     const [cases, setCases] = useState([])
+    const [pastCases, setPastCases] = useState([])
     const [loading, setLoading] = useState(true)
     const [rejectEnc, setRejectEnc] = useState(null)
     const [escalateEnc, setEscalateEnc] = useState(null)
@@ -502,14 +504,22 @@ function MyCasesPage() {
 
     const load = useCallback(async () => {
         try {
-            const all = await EncounterAPI.list({ status: '' })
-            const mine = Array.isArray(all) ? all.filter(e =>
-                e.assigned_doctor === user?.id &&
-                !['completed', 'cancelled'].includes(e.status)
-            ) : []
+            const [mine, past] = await Promise.all([
+                EncounterAPI.list({ status: '', assigned_doctor: user?.id }).then(all => 
+                    Array.isArray(all) ? all.filter(e => 
+                        e.assigned_doctor === user?.id && !['completed', 'cancelled'].includes(e.status)
+                    ) : []
+                ),
+                EncounterAPI.list({ status: 'completed', assigned_doctor: user?.id })
+            ])
             setCases(mine)
-        } catch { setCases([]) }
-        finally { setLoading(false) }
+            setPastCases(Array.isArray(past) ? past : [])
+        } catch { 
+            setCases([])
+            setPastCases([])
+        } finally { 
+            setLoading(false) 
+        }
     }, [user])
 
     useEffect(() => { load(); const t = setInterval(load, 30000); return () => clearInterval(t) }, [load])
@@ -526,70 +536,219 @@ function MyCasesPage() {
     if (loading) return <div className="loading-center"><div className="spinner" /><span>Loading cases...</span></div>
 
     return (
-        <div>
+        <div className="animate-in fade-in slide-in-from-bottom-4 duration-700">
             <EscalationAlertBanner />
-            <div className="page-header">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
                 <div>
-                    <div className="page-title">📂 My Cases</div>
-                    <div className="page-subtitle">{cases.length} assigned to you</div>
+                    <h1 className="text-3xl font-black text-white tracking-tight flex items-center gap-3">
+                        <LayoutDashboard className="text-blue-400" /> My Cases
+                    </h1>
+                    <p className="text-slate-400 text-sm mt-1">
+                        {cases.length} active patients requiring assessment
+                    </p>
                 </div>
-                <button className="btn btn-ghost" onClick={load}>↻ Refresh</button>
+                <button 
+                    className="btn btn-ghost bg-slate-900 border-slate-700 hover:bg-slate-800" 
+                    onClick={load}
+                >
+                    <RefreshCw size={16} className="text-blue-400" /> Refresh List
+                </button>
             </div>
 
             {cases.length === 0 ? (
-                <div className="empty-state"><div className="empty-state-icon">📭</div><p>No cases assigned</p></div>
+                <div className="flex flex-col items-center justify-center py-20 bg-slate-900/40 backdrop-blur-md rounded-3xl border border-dashed border-slate-700/50">
+                    <div className="text-5xl mb-4 opacity-20">🏥</div>
+                    <p className="text-slate-500 font-medium">No active clinical encounters found</p>
+                    <button className="mt-4 text-blue-400 text-sm hover:underline" onClick={load}>Reload Dashboard</button>
+                </div>
             ) : (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                <div className="grid grid-cols-1 gap-6">
                     {cases.map(enc => (
-                        <div key={enc.id} className="card">
-                            <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '1rem' }}>
-                                <div style={{ flex: 1 }}>
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '0.5rem' }}>
-                                        <span style={{ fontWeight: 700, fontSize: '1.05rem' }}>{enc.patient_detail?.name || 'Unknown Patient'}</span>
-                                        <PriorityBadge priority={enc.priority} />
-                                        <span className="tag">{enc.status}</span>
+                        <div key={enc.id} className={`group relative bg-slate-900/60 backdrop-blur-xl border border-slate-700/50 rounded-3xl p-6 shadow-2xl transition-all hover:border-blue-500/30 hover:bg-slate-900/80 ${enc.status === 'escalated' ? 'ring-2 ring-rose-500/50 ring-offset-4 ring-offset-[#0f172a]' : ''}`}>
+                            <div className="flex flex-col lg:flex-row gap-8">
+                                {/* Left Section: Patient Info & Vitals */}
+                                <div className="flex-1">
+                                    <div className="flex items-start justify-between mb-6">
+                                        <div className="flex items-center gap-4">
+                                            <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-blue-500/20 to-indigo-500/20 flex items-center justify-center text-xl shadow-inner border border-white/5">
+                                                👤
+                                            </div>
+                                            <div>
+                                                <h3 className="text-xl font-bold text-white tracking-tight group-hover:text-blue-400 transition-colors">
+                                                    {enc.patient_detail?.name || 'Unknown Patient'}
+                                                </h3>
+                                                <div className="flex items-center gap-3 mt-1">
+                                                    <PriorityBadge priority={enc.priority} />
+                                                    <span className="px-2 py-0.5 rounded-md bg-slate-800 text-[10px] font-black uppercase tracking-widest text-slate-400 border border-slate-700">
+                                                        {enc.status.replace('_', ' ')}
+                                                    </span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 bg-blue-500/10 rounded-xl border border-blue-500/20 text-blue-400 font-bold text-xs">
+                                            <MapPin size={12} />
+                                            F {enc.floor || '?'} · R {enc.room_number || '?'} · B {enc.bed_number || '?'}
+                                        </div>
+                                    </div>
+
+                                    {/* Stats Row */}
+                                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-6">
+                                        <div className="flex items-center gap-3 px-3 py-2 bg-slate-800/40 rounded-2xl border border-slate-700/30">
+                                            <Clock size={14} className="text-slate-500" />
+                                            <div>
+                                                <div className="text-[10px] text-slate-500 font-bold uppercase tracking-tighter">WAIT</div>
+                                                <div className="text-sm font-bold text-slate-200">{waitLabel(enc.created_at)}</div>
+                                            </div>
+                                        </div>
+                                        <div className="flex items-center gap-3 px-3 py-2 bg-slate-800/40 rounded-2xl border border-slate-700/30">
+                                            <Activity size={14} className="text-amber-500" />
+                                            <div>
+                                                <div className="text-[10px] text-slate-500 font-bold uppercase tracking-tighter">SCORE</div>
+                                                <div className="text-sm font-bold text-slate-200">{enc.risk_score}</div>
+                                            </div>
+                                        </div>
+                                        <div className="flex items-center gap-3 px-3 py-2 bg-slate-800/40 rounded-2xl border border-slate-700/30">
+                                            <Target size={14} className="text-emerald-500" />
+                                            <div>
+                                                <div className="text-[10px] text-slate-500 font-bold uppercase tracking-tighter">CONF</div>
+                                                <div className="text-sm font-bold text-slate-200">{enc.confidence_score ?? '—'}%</div>
+                                            </div>
+                                        </div>
+                                        <div className="flex items-center gap-3 px-3 py-2 bg-rose-500/10 rounded-2xl border border-rose-500/20">
+                                            <Info size={14} className="text-rose-400" />
+                                            <div>
+                                                <div className="text-[10px] text-rose-400 font-bold uppercase tracking-tighter">REJECTS</div>
+                                                <div className="text-sm font-bold text-rose-300">{enc.rejection_count}</div>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    {/* Detailed Vitals Bar */}
+                                    {enc.triage_data?.vitals_json && (
+                                        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-2 bg-slate-900/80 p-3 rounded-2xl border border-slate-700/50">
+                                            {[
+                                                { k: 'HR', v: enc.triage_data.vitals_json.hr, icon: <Heart size={10} />, color: 'text-rose-400' },
+                                                { k: 'BP', v: `${enc.triage_data.vitals_json.bp_systolic}/${enc.triage_data.vitals_json.bp_diastolic}`, icon: <Activity size={10} />, color: 'text-blue-400' },
+                                                { k: 'O2', v: enc.triage_data.vitals_json.spo2, icon: <Activity className="rotate-90" size={10} />, color: 'text-emerald-400' },
+                                                { k: 'T', v: enc.triage_data.vitals_json.temp, icon: <Activity size={10} />, color: 'text-amber-400' },
+                                                { k: 'GCS', v: enc.triage_data.vitals_json.gcs, icon: <Brain size={10} />, color: 'text-indigo-400' },
+                                                { k: 'Pain', v: enc.triage_data.vitals_json.pain_score, icon: <Info size={10} />, color: 'text-slate-400' },
+                                            ].filter(v => v.v != null && v.v !== 'undefined/undefined').map(stat => (
+                                                <div key={stat.k} className="flex items-center gap-2 px-2 py-1 bg-slate-800/50 rounded-lg">
+                                                    <span className={stat.color}>{stat.icon}</span>
+                                                    <span className="text-[10px] font-black text-slate-500">{stat.k}</span>
+                                                    <span className="text-[11px] font-bold text-slate-200">{stat.v}</span>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    )}
+                                </div>
+
+                                {/* Right Section: Actions */}
+                                <div className="flex flex-col justify-center gap-2 min-w-[160px] lg:border-l lg:border-slate-800 lg:pl-8">
+                                    <div className="mb-2">
                                         {enc.has_assessment && enc.assessment_completed && (
-                                            <span style={{ fontSize: '0.72rem', background: 'rgba(34,197,94,0.15)', color: 'var(--success)', borderRadius: 4, padding: '0.1rem 0.4rem', fontWeight: 600 }}>
-                                                ✅ Assessed
-                                            </span>
+                                            <div className="flex items-center gap-2 px-3 py-1.5 bg-emerald-500/10 rounded-xl border border-emerald-500/20 text-emerald-400 font-black text-[10px] tracking-widest text-center justify-center">
+                                                <CheckCircle size={12} /> ASSESSED
+                                            </div>
                                         )}
                                         {enc.has_assessment && !enc.assessment_completed && (
-                                            <span style={{ fontSize: '0.72rem', background: 'rgba(234,179,8,0.15)', color: 'var(--warn)', borderRadius: 4, padding: '0.1rem 0.4rem', fontWeight: 600 }}>
-                                                🩺 Assessing...
-                                            </span>
+                                            <div className="flex items-center gap-2 px-3 py-1.5 bg-amber-500/10 rounded-xl border border-amber-500/20 text-amber-400 font-black text-[10px] tracking-widest text-center justify-center animate-pulse">
+                                                <Stethoscope size={12} /> ASSESSING...
+                                            </div>
                                         )}
-                                        <div style={{ marginLeft: 'auto', display: 'flex', gap: '0.5rem', color: 'var(--primary)', fontWeight: 600, fontSize: '0.8rem', background: 'var(--surface2)', padding: '0.2rem 0.5rem', borderRadius: 4 }}>
-                                            📍 Floor {enc.floor || '?'}, Room {enc.room_number || '?'}, Bed {enc.bed_number || '?'}
-                                        </div>
                                     </div>
-                                    <div style={{ display: 'flex', gap: '1.5rem', color: 'var(--text-muted)', fontSize: '0.8rem' }}>
-                                        <span>⏱ Wait: <strong style={{ color: 'var(--text)' }}>{waitLabel(enc.created_at)}</strong></span>
-                                        <span>📊 Score: <strong style={{ color: 'var(--text)' }}>{enc.risk_score}</strong></span>
-                                        <span>🎯 Confidence: <strong style={{ color: 'var(--text)' }}>{enc.confidence_score ?? '—'}%</strong></span>
-                                        {enc.rejection_count > 0 && <span style={{ color: 'var(--warn)' }}>⚠️ {enc.rejection_count} prior reject(s)</span>}
-                                    </div>
-                                    {enc.triage_data?.vitals_json && (
-                                        <div style={{ marginTop: '0.5rem', fontSize: '0.8rem', color: 'var(--text-muted)', fontFamily: 'monospace' }}>
-                                            {Object.entries(enc.triage_data.vitals_json).filter(([, v]) => v != null).map(([k, v]) => `${k}: ${v}`).join('  •  ')}
-                                        </div>
-                                    )}
-                                </div>
-                                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem', minWidth: 120 }}>
+
                                     {enc.status === 'assigned' && (
-                                        <button className="btn btn-success" disabled={actionLoading[enc.id] === 'accepting'} onClick={() => acceptCase(enc)}>
-                                            {actionLoading[enc.id] === 'accepting' ? '...' : '✓ Accept'}
+                                        <button 
+                                            className="w-full btn btn-success py-3 shadow-xl shadow-emerald-900/10 active:scale-95 transition-all" 
+                                            disabled={actionLoading[enc.id] === 'accepting'} 
+                                            onClick={() => acceptCase(enc)}
+                                        >
+                                            {actionLoading[enc.id] === 'accepting' ? '...' : <><CheckCircle size={16} /> Accept Case</>}
                                         </button>
                                     )}
-                                    {(enc.status === 'in_progress' || enc.status === 'assigned') && (
-                                        <button className="btn btn-primary" onClick={() => setAssessEnc(enc)}>
-                                            🩺 Assess
+                                    
+                                    {(enc.status === 'in_progress' || enc.status === 'assigned' || enc.status === 'escalated') && (
+                                        <button 
+                                            className="w-full btn btn-primary py-3 shadow-xl shadow-blue-900/10 active:scale-95 transition-all" 
+                                            onClick={() => setAssessEnc(enc)}
+                                        >
+                                            <Stethoscope size={16} /> Patient Assessment
                                         </button>
                                     )}
-                                    <button className="btn btn-warn" onClick={() => setEscalateEnc(enc)}>🚨 Escalate</button>
-                                    <button className="btn btn-primary" style={{ fontSize: '0.8rem', background: 'var(--surface2)', color: 'var(--text)' }} onClick={() => setReferEnc(enc)}>🔄 Refer</button>
-                                    <button className="btn btn-ghost" onClick={() => setRejectEnc(enc)}>✗ Reject</button>
+
+                                    <div className="grid grid-cols-2 gap-2 mt-2">
+                                        <button className="btn btn-warn py-2.5 text-xs opacity-60 hover:opacity-100 transition-opacity" onClick={() => setEscalateEnc(enc)}>
+                                            <AlertTriangle size={14} /> ALERT
+                                        </button>
+                                        <button className="btn btn-ghost py-2.5 text-xs bg-slate-900 border-slate-800" onClick={() => setReferEnc(enc)}>
+                                            <Repeat size={14} /> REFER
+                                        </button>
+                                    </div>
+                                    <button className="btn btn-ghost w-full py-2.5 text-xs bg-slate-900 border-slate-800 mt-1 opacity-40 hover:opacity-100 hover:text-rose-400 transition-all" onClick={() => setRejectEnc(enc)}>
+                                        <XCircle size={14} /> Reject Assignment
+                                    </button>
                                 </div>
                             </div>
+                        </div>
+                    ))}
+                </div>
+            )}
+
+            {/* ─── Past Patients Section ─── */}
+            <div className="flex items-center justify-between mt-16 mb-8 border-b border-slate-800 pb-4">
+                <div>
+                    <h2 className="text-2xl font-black text-white tracking-tight flex items-center gap-3">
+                        <History className="text-slate-500" /> Patient History
+                    </h2>
+                    <p className="text-slate-400 text-sm mt-1">{pastCases.length} records in current session</p>
+                </div>
+                <div className="px-3 py-1 bg-slate-900 border border-slate-700 rounded-lg text-[10px] font-black text-slate-500 tracking-[0.2em] uppercase">Archive</div>
+            </div>
+
+            {pastCases.length === 0 ? (
+                <div className="py-12 text-center bg-slate-900/20 rounded-3xl border border-slate-800/50">
+                    <p className="text-slate-600 text-sm italic font-medium">No archived records available for this session</p>
+                </div>
+            ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    {pastCases.map(enc => (
+                        <div key={enc.id} className="bg-slate-900/40 border border-slate-800 hover:border-slate-700 rounded-3xl p-6 transition-all group overflow-hidden">
+                            <div className="flex justify-between items-start mb-6">
+                                <div className="flex items-center gap-4">
+                                    <div className="w-10 h-10 rounded-xl bg-slate-800 flex items-center justify-center text-lg grayscale group-hover:grayscale-0 transition-all">👤</div>
+                                    <div>
+                                        <h4 className="font-bold text-slate-200">{enc.patient_detail?.name || 'Unknown'}</h4>
+                                        <div className="text-[10px] text-slate-500 font-black tracking-widest uppercase mt-0.5">
+                                            {new Date(enc.updated_at).toLocaleDateString()} · {new Date(enc.updated_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                        </div>
+                                    </div>
+                                </div>
+                                <div className="p-2 bg-emerald-500/5 text-emerald-500/50 rounded-lg">
+                                    <CheckCircle size={16} />
+                                </div>
+                            </div>
+
+                            {enc.assessment_detail && (
+                                <div className="relative">
+                                    <div className="absolute top-0 bottom-0 left-0 w-1 bg-emerald-500/20 rounded-full" />
+                                    <div className="pl-6">
+                                        <div className="text-[10px] font-black text-emerald-500/80 uppercase tracking-[0.2em] mb-3">Electronic Medical Record Summary</div>
+                                        <div className="text-sm text-slate-300 leading-relaxed line-clamp-3 group-hover:line-clamp-none transition-all duration-500">
+                                            {enc.assessment_detail.report_text || 'No automated report available.'}
+                                        </div>
+                                        {enc.assessment_detail.notes && (
+                                            <div className="mt-4 pt-4 border-t border-slate-800/50">
+                                                <div className="text-[10px] font-black text-slate-600 uppercase tracking-widest mb-2">Physician Progress Notes</div>
+                                                <div className="text-xs text-slate-400 italic bg-slate-950/40 p-3 rounded-xl border border-slate-800/50">
+                                                    "{enc.assessment_detail.notes}"
+                                                </div>
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+                            )}
                         </div>
                     ))}
                 </div>
@@ -634,41 +793,78 @@ function AssignmentsPage() {
     if (loading) return <div className="loading-center"><div className="spinner" /></div>
 
     return (
-        <div>
-            <div className="page-header">
+        <div className="animate-in fade-in slide-in-from-bottom-4 duration-700">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
                 <div>
-                    <div className="page-title">📬 Pending Assignments</div>
-                    <div className="page-subtitle">Accept or reject new cases — refreshes every 15s</div>
+                    <h1 className="text-3xl font-black text-white tracking-tight flex items-center gap-3">
+                        <ClipboardList className="text-blue-400" /> Pending Assignments
+                    </h1>
+                    <p className="text-slate-400 text-sm mt-1">
+                        Accept or reject new cases — auto-refreshes every 15s
+                    </p>
                 </div>
-                <button className="btn btn-ghost" onClick={load}>↻ Refresh</button>
+                <button 
+                    className="btn btn-ghost bg-slate-900 border-slate-700 hover:bg-slate-800" 
+                    onClick={load}
+                >
+                    <RefreshCw size={16} className="text-blue-400" /> Force Refresh
+                </button>
             </div>
+
             {pending.length === 0 ? (
-                <div className="empty-state"><div className="empty-state-icon">✅</div><p>No pending assignments</p></div>
+                <div className="flex flex-col items-center justify-center py-20 bg-slate-900/40 backdrop-blur-md rounded-3xl border border-dashed border-slate-700/50">
+                    <div className="text-5xl mb-4 opacity-20">📭</div>
+                    <p className="text-slate-500 font-medium">No pending assignments for you</p>
+                </div>
             ) : (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                <div className="grid grid-cols-1 gap-4">
                     {pending.map(enc => (
-                        <div key={enc.id} className="card" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '1rem' }}>
-                            <div>
-                                <span style={{ fontWeight: 600 }}>{enc.patient_detail?.name || 'Patient'}</span>
-                                <span style={{ marginLeft: '0.75rem' }}><PriorityBadge priority={enc.priority} /></span>
-                                <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: '0.3rem' }}>
-                                    Score {enc.risk_score} • Wait {waitLabel(enc.created_at)}
-                                    {enc.triage_data?.vitals_json && (
-                                        <span style={{ marginLeft: '0.5rem', fontFamily: 'monospace' }}>
-                                            •{' '}{Object.entries(enc.triage_data.vitals_json).filter(([, v]) => v != null).slice(0, 3).map(([k, v]) => `${k}: ${v}`).join(' · ')}
-                                        </span>
-                                    )}
+                        <div key={enc.id} className="bg-slate-900/60 backdrop-blur-xl border border-slate-700/50 rounded-2xl p-5 group hover:border-blue-500/30 transition-all">
+                            <div className="flex flex-col md:flex-row items-center justify-between gap-6">
+                                <div className="flex items-center gap-5 w-full md:w-auto">
+                                    <div className="w-12 h-12 rounded-xl bg-blue-500/10 flex items-center justify-center text-xl">👤</div>
+                                    <div>
+                                        <div className="flex items-center gap-3">
+                                            <h4 className="font-bold text-white text-lg">{enc.patient_detail?.name || 'Patient'}</h4>
+                                            <PriorityBadge priority={enc.priority} />
+                                        </div>
+                                        <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-1 text-xs text-slate-400 font-medium">
+                                            <span className="flex items-center gap-1"><Activity size={12} className="text-blue-500/50" /> Score {enc.risk_score}</span>
+                                            <span className="flex items-center gap-1"><Clock size={12} className="text-amber-500/50" /> Wait {waitLabel(enc.created_at)}</span>
+                                            <span className="flex items-center gap-1 text-blue-400 font-black"><MapPin size={12} /> F {enc.floor || '?'} · R {enc.room_number || '?'} · B {enc.bed_number || '?'}</span>
+                                        </div>
+                                    </div>
                                 </div>
-                                <div style={{ fontSize: '0.8rem', color: 'var(--primary)', fontWeight: 600, marginTop: '0.3rem' }}>
-                                    📍 Floor {enc.floor || '?'}, Room {enc.room_number || '?'}, Bed {enc.bed_number || '?'}
+                                
+                                <div className="flex items-center gap-3 w-full md:w-auto">
+                                    <button 
+                                        className="flex-1 md:flex-none btn btn-success px-8 py-2.5 rounded-xl shadow-lg shadow-emerald-900/10 active:scale-95 transition-all" 
+                                        disabled={actionLoading[enc.id] === 'accepting'} 
+                                        onClick={() => accept(enc)}
+                                    >
+                                        {actionLoading[enc.id] === 'accepting' ? '...' : <><CheckCircle size={16} /> Accept</>}
+                                    </button>
+                                    <button 
+                                        className="flex-1 md:flex-none btn btn-ghost px-6 py-2.5 rounded-xl bg-slate-950/50 border-slate-800 hover:text-rose-400 hover:border-rose-400/30 transition-all" 
+                                        onClick={() => setRejectEnc(enc)}
+                                    >
+                                        <XCircle size={16} /> Reject
+                                    </button>
                                 </div>
                             </div>
-                            <div style={{ display: 'flex', gap: '0.5rem' }}>
-                                <button className="btn btn-success" disabled={actionLoading[enc.id] === 'accepting'} onClick={() => accept(enc)}>
-                                    {actionLoading[enc.id] === 'accepting' ? '...' : '✓ Accept'}
-                                </button>
-                                <button className="btn btn-ghost" onClick={() => setRejectEnc(enc)}>✗ Reject</button>
-                            </div>
+
+                            {enc.triage_data?.vitals_json && (
+                                <div className="mt-4 pt-4 border-t border-slate-800/50 flex flex-wrap gap-3">
+                                    {Object.entries(enc.triage_data.vitals_json).filter(([, v]) => v != null).slice(0, 4).map(([k, v]) => (
+                                        <div key={k} className="px-2 py-1 bg-slate-800/30 rounded-lg text-[10px] uppercase tracking-tighter text-slate-500 font-bold border border-slate-700/20">
+                                            {k}: <span className="text-slate-300 ml-1">{v}</span>
+                                        </div>
+                                    ))}
+                                    <div className="ml-auto text-blue-400/40 transform group-hover:translate-x-1 transition-transform">
+                                        <ChevronRight size={16} />
+                                    </div>
+                                </div>
+                            )}
                         </div>
                     ))}
                 </div>
