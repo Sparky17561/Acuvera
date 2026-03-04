@@ -7,6 +7,7 @@ from core.views import (
     DepartmentListView, DoctorListView, UserAvailabilityView,
     StaffListView, StaffDetailView,
 )
+from core.assessment_views import AssessmentView, CompleteAssessmentView
 
 urlpatterns = [
     path("auth/whoami/", WhoAmIView.as_view()),
@@ -24,4 +25,8 @@ urlpatterns = [
     # Admin Staff Management
     path("admin/staff/", StaffListView.as_view()),
     path("admin/staff/<uuid:pk>/", StaffDetailView.as_view()),
+
+    # Assessment
+    path("encounters/<uuid:pk>/assessment/", AssessmentView.as_view()),
+    path("encounters/<uuid:pk>/assessment/complete/", CompleteAssessmentView.as_view()),
 ]

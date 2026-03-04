@@ -2,7 +2,7 @@
 Core serializers: User, Patient, Encounter, TriageData.
 """
 from rest_framework import serializers
-from core.models import User, Patient, Encounter, TriageData, Department, HospitalConfig
+from core.models import User, Patient, Encounter, TriageData, Department, HospitalConfig, Assessment
 
 
 class DepartmentSerializer(serializers.ModelSerializer):
@@ -47,17 +47,29 @@ class EncounterSerializer(serializers.ModelSerializer):
     patient_detail = PatientSerializer(source="patient", read_only=True)
     triage_data = TriageDataSerializer(read_only=True)
     assigned_doctor_detail = UserSerializer(source="assigned_doctor", read_only=True)
+    has_assessment = serializers.SerializerMethodField()
+    assessment_completed = serializers.SerializerMethodField()
 
     class Meta:
         model = Encounter
         fields = [
             "id", "patient", "patient_detail", "department",
+            "floor", "room_number", "bed_number",
             "status", "triage_stage", "priority", "risk_score", "confidence_score",
             "assigned_doctor", "assigned_doctor_detail", "rejection_count", "version",
             "notes", "is_deleted", "created_at", "updated_at",
-            "triage_data",
+            "triage_data", "has_assessment", "assessment_completed",
         ]
         read_only_fields = ["id", "risk_score", "confidence_score", "version", "created_at", "updated_at"]
+
+    def get_has_assessment(self, obj):
+        return hasattr(obj, 'assessment') and obj.assessment is not None
+
+    def get_assessment_completed(self, obj):
+        try:
+            return obj.assessment.completed_at is not None
+        except Exception:
+            return False
 
 
 class AnalyzeTriageSerializer(serializers.Serializer):
@@ -79,3 +91,19 @@ class HospitalConfigSerializer(serializers.ModelSerializer):
     class Meta:
         model = HospitalConfig
         fields = "__all__"
+
+
+class AssessmentSerializer(serializers.ModelSerializer):
+    doctor_name = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Assessment
+        fields = [
+            "id", "encounter", "doctor", "doctor_name",
+            "notes", "media_json", "report_text",
+            "started_at", "completed_at",
+        ]
+        read_only_fields = ["id", "encounter", "doctor", "started_at", "completed_at", "report_text"]
+
+    def get_doctor_name(self, obj):
+        return obj.doctor.full_name if obj.doctor else None

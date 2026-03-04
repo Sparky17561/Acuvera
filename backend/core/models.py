@@ -139,6 +139,9 @@ class Encounter(models.Model):
     rejection_count = models.IntegerField(default=0)
     version = models.IntegerField(default=1)  # Optimistic locking
     notes = models.TextField(blank=True)
+    floor = models.CharField(max_length=50, blank=True, null=True)
+    room_number = models.CharField(max_length=50, blank=True, null=True)
+    bed_number = models.CharField(max_length=50, blank=True, null=True)
     is_deleted = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -270,6 +273,27 @@ class AnalyticsSnapshot(models.Model):
         db_table = "analyticssnapshot"
         unique_together = [("date", "department")]
         indexes = [models.Index(fields=["date", "department"])]
+
+
+class Assessment(models.Model):
+    """Doctor assessment session — notes, media, and LLM-generated report."""
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    encounter = models.OneToOneField(Encounter, on_delete=models.CASCADE, related_name="assessment")
+    doctor = models.ForeignKey(
+        User, on_delete=models.SET_NULL, null=True, related_name="assessments"
+    )
+    notes = models.TextField(blank=True)
+    # List of {name, mime_type, data_b64} dicts — base64 encoded for hackathon simplicity
+    media_json = models.JSONField(default=list)
+    report_text = models.TextField(blank=True)  # LLM-generated completion report
+    started_at = models.DateTimeField(auto_now_add=True)
+    completed_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        db_table = "assessment"
+
+    def __str__(self):
+        return f"Assessment for encounter {self.encounter_id} by {self.doctor_id}"
 
 
 class HospitalConfig(models.Model):

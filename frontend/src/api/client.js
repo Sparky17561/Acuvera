@@ -54,6 +54,7 @@ export const AllocationAPI = {
     suggest: (encounterId) => api.post(`/allocation/suggest/${encounterId}/`).then(r => r.data.data),
     confirm: (data) => api.post('/allocation/confirm/', data).then(r => r.data.data),
     respond: (data) => api.post('/allocation/respond/', data).then(r => r.data.data),
+    refer: (data) => api.post('/allocation/refer/', data).then(r => r.data.data),
 }
 
 export const EscalationAPI = {
@@ -76,4 +77,10 @@ export const AdminAPI = {
     staffList: (params) => api.get('/admin/staff/', { params }).then(r => r.data.data),
     updateStaff: (id, data) => api.patch(`/admin/staff/${id}/`, data).then(r => r.data.data),
     deleteStaff: (id) => api.delete(`/admin/staff/${id}/`).then(r => r.data.data),
+}
+
+export const AssessmentAPI = {
+    get: (encounterId) => api.get(`/encounters/${encounterId}/assessment/`).then(r => r.data.data),
+    save: (encounterId, data) => api.post(`/encounters/${encounterId}/assessment/`, data).then(r => r.data.data),
+    complete: (encounterId, data) => api.post(`/encounters/${encounterId}/assessment/complete/`, data).then(r => r.data.data),
 }

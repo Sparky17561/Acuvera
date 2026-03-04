@@ -59,7 +59,7 @@ class RespondAllocationView(APIView):
             return err("encounter_id and accepted (true/false) are required.", 400)
 
         if accepted:
-            # Doctor confirms — update encounter status
+            # Doctor confirms — move encounter to in_progress
             from core.models import Encounter
             from core.serializers import EncounterSerializer
             try:
@@ -68,7 +68,7 @@ class RespondAllocationView(APIView):
                     enc = Encounter.objects.select_for_update().get(pk=encounter_id, is_deleted=False)
                     if str(enc.assigned_doctor_id) != str(request.acuvera_user.id):
                         return err("This encounter is not assigned to you.", 403)
-                    enc.status = "assigned"
+                    enc.status = "in_progress"
                     enc.version += 1
                     enc.save()
                 from core.audit import log_audit
@@ -92,3 +92,43 @@ class RespondAllocationView(APIView):
             if not result["success"]:
                 return err(result["error"], 400)
             return ok(result)
+
+
+class ReferDoctorView(APIView):
+    """POST /api/allocation/refer/ — doctor hands off their case to a suggested or chosen doctor."""
+    permission_classes = [IsDoctor]
+
+    def post(self, request):
+        encounter_id = request.data.get("encounter_id")
+        to_doctor_id = request.data.get("to_doctor_id")
+
+        if not encounter_id or not to_doctor_id:
+            return err("encounter_id and to_doctor_id are required.", 400)
+
+        from core.models import Encounter
+        from core.serializers import EncounterSerializer
+        try:
+            enc = Encounter.objects.get(pk=encounter_id, is_deleted=False)
+        except Encounter.DoesNotExist:
+            return err("Encounter not found.", 404)
+
+        # Prevent self-referral
+        if str(to_doctor_id) == str(request.acuvera_user.id):
+            return err("You cannot refer a patient to yourself.", 400)
+
+        # Only the currently assigned doctor can refer
+        if enc.assigned_doctor_id and str(enc.assigned_doctor_id) != str(request.acuvera_user.id):
+            return err("You can only refer cases that are assigned to you.", 403)
+
+        from allocation.engine import try_assign_doctor
+        success = try_assign_doctor(
+            str(encounter_id), str(to_doctor_id),
+            reason="doctor_referral",
+            requested_by=request.acuvera_user,
+            request=request,
+        )
+        if not success:
+            return err("Referral failed — doctor may be unavailable.", 409)
+
+        enc.refresh_from_db()
+        return ok(EncounterSerializer(enc).data)

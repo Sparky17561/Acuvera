@@ -88,6 +88,27 @@ export default function LoginPage() {
                 <p style={{ textAlign: 'center', fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '1rem' }}>
                     Acuvera v0.1 MVP — India-optimized ED Platform
                 </p>
+
+                {/* Disclaimer */}
+                <div style={{
+                    marginTop: '1rem',
+                    padding: '0.75rem 1rem',
+                    borderRadius: 8,
+                    border: '1px solid rgba(234,179,8,0.3)',
+                    background: 'rgba(234,179,8,0.06)',
+                    fontSize: '0.72rem',
+                    color: 'var(--text-muted)',
+                    lineHeight: 1.6,
+                    textAlign: 'center',
+                }}>
+                    <strong style={{ color: 'var(--warn)', display: 'block', marginBottom: '0.25rem' }}>
+                        ⚠️ Decision Support Tool — Not a Diagnostic System
+                    </strong>
+                    Acuvera provides triage prioritization to assist clinical staff.
+                    All medical decisions remain the sole responsibility of qualified healthcare professionals.
+                    AI features are optional and no sensitive patient data is shared with external AI services.
+                    This system does not diagnose, prescribe, or replace clinical judgment.
+                </div>
             </div>
         </div>
     )
