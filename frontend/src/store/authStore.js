@@ -2,12 +2,17 @@ import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import { AuthAPI } from '../api/client'
 
+// If a token was already persisted in localStorage, start with isLoading=true
+// so RequireAuth shows a spinner instead of instantly redirecting to /login
+// before fetchUser() has a chance to run on app mount.
+const hasPersistedToken = !!localStorage.getItem('acuvera_token')
+
 export const useAuthStore = create(
     persist(
         (set, get) => ({
             user: null,
             token: null,
-            isLoading: false,
+            isLoading: hasPersistedToken,
 
             setToken: (token) => {
                 localStorage.setItem('acuvera_token', token)
@@ -20,7 +25,9 @@ export const useAuthStore = create(
                     const user = await AuthAPI.whoami()
                     set({ user, isLoading: false })
                 } catch {
-                    set({ user: null, isLoading: false })
+                    // Clear invalid/expired token so user is sent to login cleanly
+                    localStorage.removeItem('acuvera_token')
+                    set({ user: null, token: null, isLoading: false })
                 }
             },
 

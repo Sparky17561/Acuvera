@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { Routes, Route, Navigate } from 'react-router-dom'
 import Shell from '../../components/Shell'
-import { EncounterAPI, PatientAPI, TriageAPI, AllocationAPI, EscalationAPI, AssessmentAPI } from '../../api/client'
+import { EncounterAPI, PatientAPI, TriageAPI, AllocationAPI, EscalationAPI, AssessmentAPI, AdminAPI } from '../../api/client'
 import { Stethoscope, CheckCircle, AlertTriangle, Repeat, XCircle, Heart, Activity, Brain, Target, Clock, MapPin, ClipboardList, History, LayoutDashboard, ChevronRight, Info, RefreshCw } from 'lucide-react'
 import { useAuthStore } from '../../store/authStore'
 
@@ -107,8 +107,9 @@ function PriorityBadge({ priority }) {
     return <span className={`badge badge-${priority}`}>{priority}</span>
 }
 
-function waitLabel(createdAt) {
-    const mins = Math.floor((Date.now() - new Date(createdAt)) / 60000)
+function waitLabel(createdAt, endTime) {
+    const end = endTime ? new Date(endTime).getTime() : Date.now()
+    const mins = Math.floor((end - new Date(createdAt)) / 60000)
     if (mins < 1) return '< 1m'
     if (mins < 60) return `${mins}m`
     return `${Math.floor(mins / 60)}h ${mins % 60}m`
@@ -505,8 +506,8 @@ function MyCasesPage() {
     const load = useCallback(async () => {
         try {
             const [mine, past] = await Promise.all([
-                EncounterAPI.list({ status: '', assigned_doctor: user?.id }).then(all => 
-                    Array.isArray(all) ? all.filter(e => 
+                EncounterAPI.list({ status: '', assigned_doctor: user?.id }).then(all =>
+                    Array.isArray(all) ? all.filter(e =>
                         e.assigned_doctor === user?.id && !['completed', 'cancelled'].includes(e.status)
                     ) : []
                 ),
@@ -514,11 +515,11 @@ function MyCasesPage() {
             ])
             setCases(mine)
             setPastCases(Array.isArray(past) ? past : [])
-        } catch { 
+        } catch {
             setCases([])
             setPastCases([])
-        } finally { 
-            setLoading(false) 
+        } finally {
+            setLoading(false)
         }
     }, [user])
 
@@ -547,8 +548,8 @@ function MyCasesPage() {
                         {cases.length} active patients requiring assessment
                     </p>
                 </div>
-                <button 
-                    className="btn btn-ghost bg-slate-900 border-slate-700 hover:bg-slate-800" 
+                <button
+                    className="btn btn-ghost bg-slate-900 border-slate-700 hover:bg-slate-800"
                     onClick={load}
                 >
                     <RefreshCw size={16} className="text-blue-400" /> Refresh List
@@ -660,18 +661,18 @@ function MyCasesPage() {
                                     </div>
 
                                     {enc.status === 'assigned' && (
-                                        <button 
-                                            className="w-full btn btn-success py-3 shadow-xl shadow-emerald-900/10 active:scale-95 transition-all" 
-                                            disabled={actionLoading[enc.id] === 'accepting'} 
+                                        <button
+                                            className="w-full btn btn-success py-3 shadow-xl shadow-emerald-900/10 active:scale-95 transition-all"
+                                            disabled={actionLoading[enc.id] === 'accepting'}
                                             onClick={() => acceptCase(enc)}
                                         >
                                             {actionLoading[enc.id] === 'accepting' ? '...' : <><CheckCircle size={16} /> Accept Case</>}
                                         </button>
                                     )}
-                                    
+
                                     {(enc.status === 'in_progress' || enc.status === 'assigned' || enc.status === 'escalated') && (
-                                        <button 
-                                            className="w-full btn btn-primary py-3 shadow-xl shadow-blue-900/10 active:scale-95 transition-all" 
+                                        <button
+                                            className="w-full btn btn-primary py-3 shadow-xl shadow-blue-900/10 active:scale-95 transition-all"
                                             onClick={() => setAssessEnc(enc)}
                                         >
                                             <Stethoscope size={16} /> Patient Assessment
@@ -803,8 +804,8 @@ function AssignmentsPage() {
                         Accept or reject new cases — auto-refreshes every 15s
                     </p>
                 </div>
-                <button 
-                    className="btn btn-ghost bg-slate-900 border-slate-700 hover:bg-slate-800" 
+                <button
+                    className="btn btn-ghost bg-slate-900 border-slate-700 hover:bg-slate-800"
                     onClick={load}
                 >
                     <RefreshCw size={16} className="text-blue-400" /> Force Refresh
@@ -835,17 +836,17 @@ function AssignmentsPage() {
                                         </div>
                                     </div>
                                 </div>
-                                
+
                                 <div className="flex items-center gap-3 w-full md:w-auto">
-                                    <button 
-                                        className="flex-1 md:flex-none btn btn-success px-8 py-2.5 rounded-xl shadow-lg shadow-emerald-900/10 active:scale-95 transition-all" 
-                                        disabled={actionLoading[enc.id] === 'accepting'} 
+                                    <button
+                                        className="flex-1 md:flex-none btn btn-success px-8 py-2.5 rounded-xl shadow-lg shadow-emerald-900/10 active:scale-95 transition-all"
+                                        disabled={actionLoading[enc.id] === 'accepting'}
                                         onClick={() => accept(enc)}
                                     >
                                         {actionLoading[enc.id] === 'accepting' ? '...' : <><CheckCircle size={16} /> Accept</>}
                                     </button>
-                                    <button 
-                                        className="flex-1 md:flex-none btn btn-ghost px-6 py-2.5 rounded-xl bg-slate-950/50 border-slate-800 hover:text-rose-400 hover:border-rose-400/30 transition-all" 
+                                    <button
+                                        className="flex-1 md:flex-none btn btn-ghost px-6 py-2.5 rounded-xl bg-slate-950/50 border-slate-800 hover:text-rose-400 hover:border-rose-400/30 transition-all"
                                         onClick={() => setRejectEnc(enc)}
                                     >
                                         <XCircle size={16} /> Reject

@@ -10,8 +10,9 @@ function PriorityBadge({ priority }) {
     return <span className={`badge badge-${priority}`}>{priority}</span>
 }
 
-function waitLabel(createdAt) {
-    const mins = Math.floor((Date.now() - new Date(createdAt)) / 60000)
+function waitLabel(createdAt, endTime) {
+    const end = endTime ? new Date(endTime).getTime() : Date.now()
+    const mins = Math.floor((end - new Date(createdAt)) / 60000)
     if (mins < 1) return '< 1m'
     if (mins < 60) return `${mins}m`
     return `${Math.floor(mins / 60)}h ${mins % 60}m`
@@ -671,9 +672,10 @@ function QueuePage() {
 
     // Compute starvation threshold per encounter
     const isStarving = (enc) => {
+        if (['completed', 'cancelled'].includes(enc.status)) return false
         const waitMins = (Date.now() - new Date(enc.created_at)) / 60000
         // default threshold 30min if no dept config
-        return waitMins > 30 && ['waiting', 'assigned'].includes(enc.status)
+        return waitMins > 30
     }
 
     if (loading) return <div className="loading-center"><div className="spinner" /><span>Loading queue...</span></div>
@@ -731,7 +733,7 @@ function QueuePage() {
                                     <td>
                                         <div style={{ display: 'flex', flexDirection: 'column', gap: '0.15rem' }}>
                                             <span style={{ fontWeight: 600, color: enc.triage_data ? 'var(--text)' : 'var(--text-muted)' }}>
-                                                {waitLabel(enc.created_at)}
+                                                {waitLabel(enc.created_at, ['completed', 'cancelled'].includes(enc.status) ? enc.updated_at : null)}
                                             </span>
                                             {isStarving(enc) && (
                                                 <span style={{ fontSize: '0.7rem', color: 'var(--warn)', fontWeight: 700 }}>⚠️ Too long</span>
@@ -806,18 +808,18 @@ function QueuePage() {
                 <NewPatientModal onClose={() => setShowNewPatient(false)} onCreated={(enc) => { setEncounters(e => [enc, ...e]); setTriageEnc(enc) }} />
             )}
             {triageEnc && (
-                <TriageModal 
+                <TriageModal
                     key={`triage-${triageEnc.id}`}
-                    encounter={triageEnc} 
-                    onClose={() => setTriageEnc(null)} 
-                    onResult={() => { setTimeout(load, 1000) }} 
+                    encounter={triageEnc}
+                    onClose={() => setTriageEnc(null)}
+                    onResult={() => { setTimeout(load, 1000) }}
                 />
             )}
             {assignEnc && (
-                <DoctorAssignmentModal 
-                    encounter={assignEnc} 
-                    onClose={() => setAssignEnc(null)} 
-                    onAssigned={load} 
+                <DoctorAssignmentModal
+                    encounter={assignEnc}
+                    onClose={() => setAssignEnc(null)}
+                    onAssigned={load}
                 />
             )}
             {reportEnc && (

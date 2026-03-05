@@ -51,12 +51,11 @@ function AutoRoute() {
 export default function App() {
   const { fetchUser, token } = useAuthStore()
 
-  // On app load: restore bypass session from persisted token
+  // On app load: restore session from any persisted token (JWT or dev-bypass)
   useEffect(() => {
-    if (token === 'bypass-dev-token') {
+    if (token) {
       fetchUser()
     }
-    // Clerk sessions are handled by GlobalClerkBridge above
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
