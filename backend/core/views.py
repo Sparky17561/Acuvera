@@ -3,6 +3,7 @@ Core API views: auth/whoami, patients, encounters.
 """
 import logging
 from django.db import transaction
+from django.utils import timezone
 from rest_framework.views import APIView
 from rest_framework.parsers import JSONParser
 
@@ -171,8 +172,29 @@ class EncounterListCreateView(APIView):
         if doctor_id:
             qs = qs.filter(assigned_doctor_id=doctor_id)
 
-        # Queue ordering: priority asc (critical first), then risk_score desc, then created_at asc
-        qs = qs.order_by("created_at")  # base ordering; priority sort applied in Python below
+        # Auto-transition incoming encounters whose ETA has expired → waiting
+        now = timezone.now()
+        expired_incoming = qs.filter(status='incoming', eta_set_at__isnull=False, eta_minutes__isnull=False)
+        for enc in expired_incoming:
+            elapsed = (now - enc.eta_set_at).total_seconds()
+            if elapsed >= enc.eta_minutes * 60:
+                Encounter.objects.filter(pk=enc.pk, status='incoming').update(status='waiting')
+
+        # Re-fetch after transitions
+        qs = Encounter.objects.filter(is_deleted=False).select_related(
+            "patient", "department", "assigned_doctor", "triage_data"
+        )
+        dept_id = request.query_params.get("department")
+        if dept_id:
+            qs = qs.filter(department_id=dept_id)
+        status_filter = request.query_params.get("status")
+        if status_filter:
+            qs = qs.filter(status=status_filter)
+        doctor_id = request.query_params.get("assigned_doctor")
+        if doctor_id:
+            qs = qs.filter(assigned_doctor_id=doctor_id)
+
+        qs = qs.order_by("created_at")
         encounters = sorted(
             qs,
             key=lambda e: (PRIORITY_ORDER.get(e.priority, 99), -e.risk_score, e.created_at),
@@ -271,6 +293,30 @@ class EncounterAssignView(APIView):
 
         log_audit("encounter.assign", "encounter", enc.id, request.acuvera_user, pre, model_snapshot(enc_locked), request)
         return ok(EncounterSerializer(enc_locked).data)
+
+
+class EncounterLocationUpdateView(APIView):
+    """PATCH /api/encounters/{id}/location/ — update floor/room/bed after assignment."""
+    permission_classes = [IsNurseOrAdmin]
+
+    def patch(self, request, pk):
+        try:
+            enc = Encounter.objects.get(pk=pk, is_deleted=False)
+        except Encounter.DoesNotExist:
+            return err("Encounter not found.", 404)
+
+        pre = model_snapshot(enc)
+        floor = request.data.get("floor", enc.floor)
+        room_number = request.data.get("room_number", enc.room_number)
+        bed_number = request.data.get("bed_number", enc.bed_number)
+
+        enc.floor = floor
+        enc.room_number = room_number
+        enc.bed_number = bed_number
+        enc.save(update_fields=["floor", "room_number", "bed_number"])
+
+        log_audit("encounter.location_update", "encounter", enc.id, request.acuvera_user, pre, model_snapshot(enc), request)
+        return ok(EncounterSerializer(enc).data)
 
 
 class DepartmentListView(APIView):

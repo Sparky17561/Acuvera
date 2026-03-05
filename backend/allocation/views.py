@@ -39,6 +39,13 @@ class CandidatesListView(APIView):
         for c in candidates:
             doc_data = UserSerializer(c["doctor"]).data
             doc_data["workload_score"] = c["workload"]
+            # Raw count of active (assigned + in_progress + escalated) cases for display
+            from core.models import Encounter as Enc
+            doc_data["active_case_count"] = Enc.objects.filter(
+                assigned_doctor_id=c["doctor"].id,
+                status__in=("assigned", "in_progress", "escalated"),
+                is_deleted=False,
+            ).count()
             data.append(doc_data)
             
         return ok(data)
@@ -56,12 +63,19 @@ class ConfirmAllocationView(APIView):
         if not encounter_id or not to_doctor_id:
             return err("encounter_id and to_doctor_id are required.", 400)
 
+        floor = request.data.get("floor")
+        room_number = request.data.get("room_number")
+        bed_number = request.data.get("bed_number")
+
         from allocation.engine import try_assign_doctor
         success = try_assign_doctor(
             str(encounter_id), str(to_doctor_id),
             reason=reason,
             requested_by=request.acuvera_user,
             request=request,
+            floor=floor,
+            room_number=room_number,
+            bed_number=bed_number,
         )
         if not success:
             return err("Assignment failed — encounter may already be assigned or doctor unavailable.", 409)

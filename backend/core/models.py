@@ -110,6 +110,7 @@ class Patient(models.Model):
 class Encounter(models.Model):
     """Core clinical encounter record — central entity for triage and allocation."""
     STATUS_CHOICES = [
+        ("incoming", "Incoming Ambulance"),
         ("waiting", "Waiting"),
         ("assigned", "Assigned"),
         ("in_progress", "In Progress"),
@@ -142,6 +143,11 @@ class Encounter(models.Model):
     floor = models.CharField(max_length=50, blank=True, null=True)
     room_number = models.CharField(max_length=50, blank=True, null=True)
     bed_number = models.CharField(max_length=50, blank=True, null=True)
+    # Ambulance pre-triage fields
+    eta_minutes = models.IntegerField(null=True, blank=True)
+    eta_set_at = models.DateTimeField(null=True, blank=True)
+    # AI Insight caching — stores GROQ output to avoid repeat calls
+    ai_insight_json = models.JSONField(null=True, blank=True)
     is_deleted = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)

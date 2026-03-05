@@ -7,6 +7,7 @@ const LoginPage = React.lazy(() => import('./pages/LoginPage'))
 const NurseDashboard = React.lazy(() => import('./pages/Nurse/NurseDashboard'))
 const DoctorDashboard = React.lazy(() => import('./pages/Doctor/DoctorDashboard'))
 const AdminDashboard = React.lazy(() => import('./pages/Admin/AdminDashboard'))
+const ParamedicPage = React.lazy(() => import('./pages/ParamedicPage'))
 
 function getRoleHome(role) {
   if (role === 'nurse') return '/nurse'
@@ -83,6 +84,7 @@ export default function App() {
               <AdminDashboard />
             </RequireAuth>
           } />
+          <Route path="/paramedic" element={<ParamedicPage />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </React.Suspense>

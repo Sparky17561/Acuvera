@@ -3,11 +3,14 @@ from django.urls import path
 from core.views import (
     WhoAmIView, RegisterUserView, LoginView,
     PatientListCreateView, PatientDetailView,
-    EncounterListCreateView, EncounterDetailView, EncounterAssignView,
+    EncounterListCreateView, EncounterDetailView, EncounterAssignView, EncounterLocationUpdateView,
     DepartmentListView, DepartmentDetailView, DoctorListView, UserAvailabilityView,
     StaffListView, StaffDetailView,
 )
 from core.assessment_views import AssessmentView, CompleteAssessmentView
+from core.insight_views import InsightView
+from core.simulation_views import SimulateView
+from core.ambulance_views import AmbulancePreRegisterView, IncomingAmbulanceListView
 
 urlpatterns = [
     path("auth/whoami/", WhoAmIView.as_view()),
@@ -18,6 +21,7 @@ urlpatterns = [
     path("encounters/", EncounterListCreateView.as_view()),
     path("encounters/<uuid:pk>/", EncounterDetailView.as_view()),
     path("encounters/<uuid:pk>/assign/", EncounterAssignView.as_view()),
+    path("encounters/<uuid:pk>/location/", EncounterLocationUpdateView.as_view()),
     path("departments/", DepartmentListView.as_view()),
     path("departments/<uuid:pk>/", DepartmentDetailView.as_view()),
     path("doctors/", DoctorListView.as_view()),
@@ -30,4 +34,14 @@ urlpatterns = [
     # Assessment
     path("encounters/<uuid:pk>/assessment/", AssessmentView.as_view()),
     path("encounters/<uuid:pk>/assessment/complete/", CompleteAssessmentView.as_view()),
+
+    # AI Clinical Insight
+    path("encounters/<uuid:pk>/insight/", InsightView.as_view()),
+
+    # Ambulance Pre-Triage
+    path("encounters/ambulance/", AmbulancePreRegisterView.as_view()),
+    path("encounters/incoming/", IncomingAmbulanceListView.as_view()),
+
+    # Live ER Simulation
+    path("admin/simulate/", SimulateView.as_view()),
 ]

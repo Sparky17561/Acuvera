@@ -16,6 +16,17 @@ SLA_DEFAULTS = {
     "manual_escalation": 900,  # 15 minutes
 }
 
+ICU_BEDS = [
+    "ICU-A1", "ICU-A2", "ICU-A3", "ICU-A4",
+    "ICU-B1", "ICU-B2", "ICU-B3", "ICU-B4",
+]
+
+def assign_icu_bed() -> str:
+    """Round-robin ICU bed assignment based on current active code blue count."""
+    from core.models import EscalationEvent
+    count = EscalationEvent.objects.filter(type="code_blue", acknowledged_at__isnull=True).count()
+    return ICU_BEDS[count % len(ICU_BEDS)]
+
 
 def trigger_escalation(
     encounter_id: str,
@@ -47,6 +58,9 @@ def trigger_escalation(
             enc.version += 1
             enc.save()
 
+            # Auto-assign ICU bed for code blue events
+            icu_bed = assign_icu_bed() if escalation_type == "code_blue" else None
+
             event = EscalationEvent.objects.create(
                 encounter=enc,
                 type=escalation_type,
@@ -69,11 +83,14 @@ def trigger_escalation(
                 encounter_id, escalation_type, triggered_by
             )
 
+        patient_name = enc.patient.name if enc.patient else "Unknown"
         return {
             "success": True,
             "escalation_event_id": str(event.id),
             "encounter_id": str(enc.id),
+            "patient_name": patient_name,
             "type": escalation_type,
+            "icu_bed": icu_bed,
             "timestamp": event.timestamp.isoformat(),
         }
 
@@ -81,9 +98,10 @@ def trigger_escalation(
         return {"success": False, "error": "Encounter not found"}
 
 
-def acknowledge_escalation(event_id: str, acknowledging_doctor=None, request=None) -> dict:
+def acknowledge_escalation(event_id: str, acknowledging_nurse=None, request=None) -> dict:
     """
-    Doctor clicks 'I am attending' — records response_time and clears SLA timer.
+    Nurse clicks 'Acknowledge' on a Code Blue — records response_time for audit.
+    The encounter stays escalated; the doctor on the case continues managing it.
     """
     from core.models import EscalationEvent, HospitalConfig
     try:
@@ -105,14 +123,14 @@ def acknowledge_escalation(event_id: str, acknowledging_doctor=None, request=Non
         sla_breached = response_time > sla_threshold
 
         event.response_time = response_time
-        event.acknowledged_by = acknowledging_doctor
+        event.acknowledged_by = acknowledging_nurse
         event.acknowledged_at = now
         event.sla_breached = sla_breached
         event.save()
 
-        # [FIX] Transition encounter from 'escalated' -> 'in_progress' so doctor can assess
-        from core.models import Encounter
-        Encounter.objects.filter(pk=event.encounter_id, status="escalated").update(status="in_progress")
+        # NOTE: We do NOT reassign the encounter here.
+        # The encounter stays 'escalated'; the assigned doctor is still responsible.
+        # The nurse acknowledgement is purely an audit/SLA record.
 
         if sla_breached:
             logger.error(
@@ -122,7 +140,7 @@ def acknowledge_escalation(event_id: str, acknowledging_doctor=None, request=Non
 
         log_audit(
             "escalation.acknowledge", "escalation_event", event.id,
-            acknowledging_doctor, None, None, request,
+            acknowledging_nurse, None, None, request,
             metadata={"response_time_s": response_time, "sla_breached": sla_breached},
         )
 
@@ -131,6 +149,7 @@ def acknowledge_escalation(event_id: str, acknowledging_doctor=None, request=Non
             "response_time_seconds": response_time,
             "sla_breached": sla_breached,
             "sla_threshold_seconds": sla_threshold,
+            "acknowledged_at": now.isoformat(),
         }
 
     except EscalationEvent.DoesNotExist:

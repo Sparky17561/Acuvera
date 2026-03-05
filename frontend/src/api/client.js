@@ -44,6 +44,7 @@ export const EncounterAPI = {
     create: (data) => api.post('/encounters/', data).then(r => r.data.data),
     patch: (id, data) => api.patch(`/encounters/${id}/`, data).then(r => r.data.data),
     assign: (id, doctorId) => api.patch(`/encounters/${id}/assign/`, { doctor_id: doctorId }).then(r => r.data.data),
+    updateLocation: (id, data) => api.patch(`/encounters/${id}/location/`, data).then(r => r.data.data),
 }
 
 export const TriageAPI = {
@@ -60,7 +61,7 @@ export const AllocationAPI = {
 
 export const EscalationAPI = {
     trigger: (data) => api.post('/escalation/trigger/', data).then(r => r.data.data),
-    acknowledge: (eventId) => api.post('/escalation/acknowledge/', { event_id: eventId }).then(r => r.data.data),
+    acknowledge: (data) => api.post('/escalation/acknowledge/', typeof data === 'string' || typeof data === 'number' ? { event_id: data } : data).then(r => r.data.data),
     events: (params) => api.get('/escalation/events/', { params }).then(r => r.data.data),
 }
 
@@ -88,4 +89,20 @@ export const AssessmentAPI = {
     get: (encounterId) => api.get(`/encounters/${encounterId}/assessment/`).then(r => r.data.data),
     save: (encounterId, data) => api.post(`/encounters/${encounterId}/assessment/`, data).then(r => r.data.data),
     complete: (encounterId, data) => api.post(`/encounters/${encounterId}/assessment/complete/`, data).then(r => r.data.data),
+}
+
+export const InsightAPI = {
+    generate: (encounterId) => api.post(`/encounters/${encounterId}/insight/`).then(r => r.data.data),
+}
+
+export const AmbulanceAPI = {
+    preRegister: (data) => api.post('/encounters/ambulance/', data, {
+        headers: { 'X-Ambulance-Key': 'acuvera-demo-ambulance' }
+    }).then(r => r.data.data),
+    listIncoming: () => api.get('/encounters/incoming/').then(r => r.data.data),
+}
+
+// Add simulate to AdminAPI — exported separately above for clarity
+export const SimulateAPI = {
+    run: (data) => api.post('/admin/simulate/', data).then(r => r.data.data),
 }

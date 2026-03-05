@@ -20,13 +20,14 @@ PRIORITY_WORKLOAD_WEIGHTS = {
 
 def compute_doctor_workload(doctor_id: str) -> float:
     """
-    Workload = critical*3 + high*2 + moderate*1 + pending*0.5
-    Counts all non-completed encounters assigned to this doctor.
+    Workload = critical*3 + high*2 + moderate*1 + low*0.5
+    Counts only ACTIVE cases: assigned, in_progress, escalated.
+    Explicitly excludes completed, cancelled, and waiting encounters.
     """
     from core.models import Encounter
     active = Encounter.objects.filter(
         assigned_doctor_id=doctor_id,
-        status__in=("assigned", "in_progress", "waiting"),
+        status__in=("assigned", "in_progress", "escalated"),
         is_deleted=False,
     ).values_list("priority", flat=True)
 
@@ -69,7 +70,8 @@ def get_candidate_doctors(department_id: str, max_cases: int = 6) -> list:
 
 
 def try_assign_doctor(encounter_id: str, doctor_id: str, reason: str = "auto_assign",
-                      requested_by=None, request=None) -> bool:
+                      requested_by=None, request=None,
+                      floor=None, room_number=None, bed_number=None) -> bool:
     """
     Attempt to assign a doctor to an encounter.
     Uses SELECT FOR UPDATE to prevent race conditions.
@@ -91,6 +93,12 @@ def try_assign_doctor(encounter_id: str, doctor_id: str, reason: str = "auto_ass
 
             enc.assigned_doctor = doctor
             enc.status = "assigned"
+            if floor is not None:
+                enc.floor = floor
+            if room_number is not None:
+                enc.room_number = room_number
+            if bed_number is not None:
+                enc.bed_number = bed_number
             enc.version += 1
             enc.save()
 
@@ -230,9 +238,8 @@ def handle_rejection(encounter_id: str, doctor_id: str, rejection_reason: str,
             )
             return {"success": True, "escalated": True, "rejection_count": enc.rejection_count}
 
-        # Try next candidate
-        result = auto_allocate(encounter_id, request=request)
-        return {"success": True, "escalated": False, "next_assignment": result,
+        # Return to waiting state, alert nurse UI
+        return {"success": True, "escalated": False,
                 "rejection_count": enc.rejection_count}
 
     except (Encounter.DoesNotExist, User.DoesNotExist) as e:

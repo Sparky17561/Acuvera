@@ -95,22 +95,22 @@ def _evaluate_weighted_conditions(vitals: dict, symptoms: list, patient_age: Opt
     score = 0
     reasons = []
 
-    # SpO2 low
-    spo2_threshold = dept_config.get("SpO2_low_threshold", 90)
+    # SpO2 low — WHO clinical threshold: < 92% is clinically significant hypoxia
+    spo2_threshold = dept_config.get("SpO2_low_threshold", 92)
     spo2_weight = dept_config.get("SpO2_low", 20)
     if vitals.get("spo2") is not None and vitals["spo2"] < spo2_threshold:
         score += spo2_weight
         reasons.append(f"SpO2 below threshold ({vitals['spo2']}% < {spo2_threshold}%)")
 
-    # Heart rate high
-    hr_threshold = dept_config.get("HR_high_threshold", 120)
+    # Heart rate high — tachycardia threshold (clinical: > 110 warrants attention)
+    hr_threshold = dept_config.get("HR_high_threshold", 110)
     hr_weight = dept_config.get("HR_high", 15)
     if vitals.get("hr") is not None and vitals["hr"] > hr_threshold:
         score += hr_weight
         reasons.append(f"HR elevated ({vitals['hr']} > {hr_threshold} bpm)")
 
-    # Heart rate low (bradycardia)
-    hr_low_threshold = dept_config.get("HR_low_threshold", 50)
+    # Heart rate low (bradycardia) — symptomatic bradycardia < 55
+    hr_low_threshold = dept_config.get("HR_low_threshold", 55)
     hr_low_weight = dept_config.get("HR_low", 15)
     if vitals.get("hr") is not None and vitals["hr"] < hr_low_threshold:
         score += hr_low_weight
@@ -123,26 +123,33 @@ def _evaluate_weighted_conditions(vitals: dict, symptoms: list, patient_age: Opt
         score += bp_weight
         reasons.append(f"BP severely elevated ({vitals['bp_systolic']}/{vitals.get('bp_diastolic', '?')} mmHg)")
 
-    # Severe pain
-    pain_threshold = dept_config.get("pain_threshold", 8)
+    # Hypotension — systolic < 90 mmHg is shock territory
+    bp_low_threshold = dept_config.get("BP_low_threshold", 90)
+    bp_low_weight = dept_config.get("BP_low", 20)
+    if vitals.get("bp_systolic") is not None and vitals["bp_systolic"] < bp_low_threshold:
+        score += bp_low_weight
+        reasons.append(f"Hypotension — BP {vitals['bp_systolic']}/{vitals.get('bp_diastolic', '?')} mmHg (systolic < {bp_low_threshold})")
+
+    # Severe pain — lowered to 7 for better sensitivity
+    pain_threshold = dept_config.get("pain_threshold", 7)
     pain_weight = dept_config.get("severe_pain", 10)
     if vitals.get("pain_score") is not None and vitals["pain_score"] >= pain_threshold:
         score += pain_weight
         reasons.append(f"Severe pain reported (score {vitals['pain_score']}/10)")
 
-    # Respiratory rate high
-    rr_threshold = dept_config.get("RR_high_threshold", 25)
-    rr_weight = dept_config.get("RR_high", 10)
+    # Respiratory rate high — tachypnea threshold: > 24/min
+    rr_threshold = dept_config.get("RR_high_threshold", 24)
+    rr_weight = dept_config.get("RR_high", 15)
     if vitals.get("rr") is not None and vitals["rr"] > rr_threshold:
         score += rr_weight
         reasons.append(f"Respiratory rate high ({vitals['rr']} > {rr_threshold} /min)")
 
-    # Fever
-    temp_threshold = dept_config.get("temp_high_threshold", 103.0)
-    temp_weight = dept_config.get("temp_high", 8)
+    # Fever — lowered to 101°F for febrile detection
+    temp_threshold = dept_config.get("temp_high_threshold", 101.0)
+    temp_weight = dept_config.get("temp_high", 10)
     if vitals.get("temp") is not None and vitals["temp"] >= temp_threshold:
         score += temp_weight
-        reasons.append(f"High fever ({vitals['temp']}°F)")
+        reasons.append(f"Fever ({vitals['temp']}°F ≥ {temp_threshold}°F)")
 
     # Age > 60 (higher risk)
     age_weight = dept_config.get("age_over_60", 5)
@@ -275,6 +282,7 @@ def compute_triage(encounter_id: str, vitals: dict, symptoms: list, red_flags: d
             "confidence_score": confidence,
             "reasons": reasons,
             "hard_override": False,
+            "vitals_panel": build_vitals_panel(vitals, dept_config),
         }
 
 
@@ -290,3 +298,117 @@ def _upsert_triage_data(enc, vitals, symptoms, red_flags, completeness):
             "data_completeness_ratio": completeness,
         },
     )
+
+
+def build_vitals_panel(vitals: dict, dept_config: dict = None) -> list:
+    """
+    Return a list of vital evaluations for display.
+    Each entry: {vital, label, value, unit, status, note}
+    status is one of: 'normal', 'borderline', 'critical'
+    """
+    if not vitals:
+        return []
+
+    dept_config = dept_config or {}
+    panel = []
+
+    # SpO2
+    spo2 = vitals.get("spo2")
+    if spo2 is not None:
+        if spo2 >= 95:
+            panel.append({"vital": "spo2", "label": "SpO₂", "value": spo2, "unit": "%",
+                          "status": "normal", "note": "Normal"})
+        elif spo2 >= 92:
+            panel.append({"vital": "spo2", "label": "SpO₂", "value": spo2, "unit": "%",
+                          "status": "borderline", "note": "Borderline — monitor closely"})
+        else:
+            panel.append({"vital": "spo2", "label": "SpO₂", "value": spo2, "unit": "%",
+                          "status": "critical", "note": "Low — hypoxia risk"})
+
+    # Heart rate
+    hr = vitals.get("hr")
+    if hr is not None:
+        if 60 <= hr <= 100:
+            panel.append({"vital": "hr", "label": "Heart Rate", "value": hr, "unit": "bpm",
+                          "status": "normal", "note": "Normal sinus"})
+        elif hr <= 110 and hr >= 55:
+            panel.append({"vital": "hr", "label": "Heart Rate", "value": hr, "unit": "bpm",
+                          "status": "borderline", "note": "Borderline — tachycardia trend" if hr > 100 else "Borderline — bradycardia trend"})
+        elif hr > 110:
+            panel.append({"vital": "hr", "label": "Heart Rate", "value": hr, "unit": "bpm",
+                          "status": "critical", "note": "Tachycardia"})
+        else:
+            panel.append({"vital": "hr", "label": "Heart Rate", "value": hr, "unit": "bpm",
+                          "status": "critical", "note": "Bradycardia"})
+
+    # Blood pressure
+    sbp = vitals.get("bp_systolic")
+    dbp = vitals.get("bp_diastolic")
+    if sbp is not None:
+        bp_str = f"{sbp}/{dbp}" if dbp else str(sbp)
+        if sbp < 90:
+            panel.append({"vital": "bp", "label": "BP", "value": bp_str, "unit": "mmHg",
+                          "status": "critical", "note": "Hypotension"})
+        elif sbp >= 180:
+            panel.append({"vital": "bp", "label": "BP", "value": bp_str, "unit": "mmHg",
+                          "status": "critical", "note": "Hypertensive emergency"})
+        elif sbp >= 140:
+            panel.append({"vital": "bp", "label": "BP", "value": bp_str, "unit": "mmHg",
+                          "status": "borderline", "note": "Stage 2 hypertension"})
+        else:
+            panel.append({"vital": "bp", "label": "BP", "value": bp_str, "unit": "mmHg",
+                          "status": "normal", "note": "Acceptable range"})
+
+    # Respiratory rate
+    rr = vitals.get("rr")
+    if rr is not None:
+        if 12 <= rr <= 20:
+            panel.append({"vital": "rr", "label": "Resp. Rate", "value": rr, "unit": "/min",
+                          "status": "normal", "note": "Normal"})
+        elif rr <= 24:
+            panel.append({"vital": "rr", "label": "Resp. Rate", "value": rr, "unit": "/min",
+                          "status": "borderline", "note": "Elevated — tachypnea threshold"})
+        else:
+            panel.append({"vital": "rr", "label": "Resp. Rate", "value": rr, "unit": "/min",
+                          "status": "critical", "note": "Tachypnea"})
+
+    # Temperature
+    temp = vitals.get("temp")
+    if temp is not None:
+        if temp <= 99.5:
+            panel.append({"vital": "temp", "label": "Temperature", "value": temp, "unit": "°F",
+                          "status": "normal", "note": "Afebrile"})
+        elif temp <= 101.0:
+            panel.append({"vital": "temp", "label": "Temperature", "value": temp, "unit": "°F",
+                          "status": "borderline", "note": "Low-grade fever"})
+        else:
+            panel.append({"vital": "temp", "label": "Temperature", "value": temp, "unit": "°F",
+                          "status": "critical", "note": "Fever"})
+
+    # GCS
+    gcs = vitals.get("gcs")
+    if gcs is not None:
+        if gcs >= 14:
+            panel.append({"vital": "gcs", "label": "GCS", "value": gcs, "unit": "",
+                          "status": "normal", "note": "Alert"})
+        elif gcs >= 9:
+            panel.append({"vital": "gcs", "label": "GCS", "value": gcs, "unit": "",
+                          "status": "borderline", "note": "Mild-moderate impairment"})
+        else:
+            panel.append({"vital": "gcs", "label": "GCS", "value": gcs, "unit": "",
+                          "status": "critical", "note": "Severe impairment — hard override"})
+
+    # Pain score
+    pain = vitals.get("pain_score")
+    if pain is not None:
+        if pain <= 3:
+            panel.append({"vital": "pain", "label": "Pain Score", "value": pain, "unit": "/10",
+                          "status": "normal", "note": "Mild pain"})
+        elif pain <= 6:
+            panel.append({"vital": "pain", "label": "Pain Score", "value": pain, "unit": "/10",
+                          "status": "borderline", "note": "Moderate pain"})
+        else:
+            panel.append({"vital": "pain", "label": "Pain Score", "value": pain, "unit": "/10",
+                          "status": "critical", "note": "Severe pain"})
+
+    return panel

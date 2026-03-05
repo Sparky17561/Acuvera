@@ -3,21 +3,24 @@ import { useAuthStore } from '../store/authStore'
 import {
     LayoutDashboard, ClipboardList, Siren, BarChart2, AlertTriangle,
     TrendingUp, Settings, Users, LogOut, Activity, Stethoscope,
-    ChevronRight
+    ChevronRight, Zap, History
 } from 'lucide-react'
 
 const NAV = {
     nurse: [
         { path: '/nurse/queue', icon: Siren, label: 'ED Queue', color: 'text-rose-400' },
+        { path: '/nurse/escalations', icon: AlertTriangle, label: 'Escalations', color: 'text-amber-400' },
     ],
     doctor: [
         { path: '/doctor/my-cases', icon: LayoutDashboard, label: 'My Cases', color: 'text-blue-400' },
         { path: '/doctor/assignments', icon: ClipboardList, label: 'Assignments', color: 'text-indigo-400' },
+        { path: '/doctor/history', icon: History, label: 'Patient History', color: 'text-slate-400' },
     ],
     admin: [
         { path: '/admin/overview', icon: BarChart2, label: 'Overview', color: 'text-blue-400' },
         { path: '/admin/starvation', icon: AlertTriangle, label: 'Starvation', color: 'text-amber-400' },
         { path: '/admin/forecast', icon: TrendingUp, label: 'Forecast', color: 'text-emerald-400' },
+        { path: '/admin/simulate', icon: Zap, label: 'Live Simulate', color: 'text-violet-400' },
         { path: '/admin/config', icon: Settings, label: 'Config', color: 'text-slate-400' },
         { path: '/admin/staff', icon: Users, label: 'Staff', color: 'text-indigo-400' },
     ],

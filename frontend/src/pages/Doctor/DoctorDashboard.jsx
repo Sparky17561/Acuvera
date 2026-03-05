@@ -1,24 +1,43 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { Routes, Route, Navigate } from 'react-router-dom'
 import Shell from '../../components/Shell'
-import { EncounterAPI, PatientAPI, TriageAPI, AllocationAPI, EscalationAPI, AssessmentAPI, AdminAPI } from '../../api/client'
+import { EncounterAPI, TriageAPI, AllocationAPI, EscalationAPI, AssessmentAPI, AdminAPI, InsightAPI } from '../../api/client'
 import { Stethoscope, CheckCircle, AlertTriangle, Repeat, XCircle, Heart, Activity, Brain, Target, Clock, MapPin, ClipboardList, History, LayoutDashboard, ChevronRight, Info, RefreshCw } from 'lucide-react'
 import { useAuthStore } from '../../store/authStore'
 
 // ─── Escalation Alert Banner ─────────────────────────────────────────────
+const ICU_BEDS = [
+    "ICU-A1", "ICU-A2", "ICU-A3", "ICU-A4",
+    "ICU-B1", "ICU-B2", "ICU-B3", "ICU-B4",
+]
+
 function EscalationAlertBanner() {
     const [alerts, setAlerts] = useState([])  // unacknowledged escalation events
-    const [responding, setResponding] = useState({})
     const [elapsed, setElapsed] = useState({})  // seconds since escalation per event
+    const [encounterMeta, setEncounterMeta] = useState({}) // encounter_id -> { patient_name, icu_bed }
     const tickRef = useRef()
 
     const loadAlerts = useCallback(async () => {
         try {
             const events = await EscalationAPI.events({})
-            const unacked = (Array.isArray(events) ? events : []).filter(e => !e.acknowledged_at)
+            const dismissedAlerts = JSON.parse(localStorage.getItem('dismissedAlerts') || '[]')
+            const unacked = (Array.isArray(events) ? events : []).filter(e => !e.acknowledged_at && !dismissedAlerts.includes(e.id))
             setAlerts(unacked)
+            const newMeta = {}
+            await Promise.all(unacked.map(async (ev, idx) => {
+                if (!encounterMeta[ev.encounter_id]) {
+                    try {
+                        const enc = await EncounterAPI.get(ev.encounter_id)
+                        newMeta[ev.encounter_id] = {
+                            patient_name: enc.patient_detail?.name || 'Unknown Patient',
+                            icu_bed: ev.type === 'code_blue' ? ICU_BEDS[idx % ICU_BEDS.length] : null,
+                        }
+                    } catch { }
+                }
+            }))
+            if (Object.keys(newMeta).length > 0) setEncounterMeta(prev => ({ ...prev, ...newMeta }))
         } catch { }
-    }, [])
+    }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
     useEffect(() => {
         loadAlerts()
@@ -32,8 +51,7 @@ function EscalationAlertBanner() {
             setElapsed(prev => {
                 const next = { ...prev }
                 alerts.forEach(ev => {
-                    const secs = Math.floor((Date.now() - new Date(ev.timestamp)) / 1000)
-                    next[ev.id] = secs
+                    next[ev.id] = Math.floor((Date.now() - new Date(ev.timestamp)) / 1000)
                 })
                 return next
             })
@@ -41,21 +59,18 @@ function EscalationAlertBanner() {
         return () => clearInterval(tickRef.current)
     }, [alerts])
 
-    const handleRespond = async (eventId) => {
-        setResponding(prev => ({ ...prev, [eventId]: true }))
-        try {
-            await EscalationAPI.acknowledge(eventId)
-            setAlerts(prev => prev.filter(e => e.id !== eventId))
-        } catch (err) {
-            alert('Error: ' + (err.response?.data?.errors || err.message))
-        } finally {
-            setResponding(prev => ({ ...prev, [eventId]: false }))
+    // Doctors are just informed — dismiss removes from their local view only, no API call
+    const handleDismiss = (eventId) => {
+        const dismissedAlerts = JSON.parse(localStorage.getItem('dismissedAlerts') || '[]')
+        if (!dismissedAlerts.includes(eventId)) {
+            localStorage.setItem('dismissedAlerts', JSON.stringify([...dismissedAlerts, eventId]))
         }
+        setAlerts(prev => prev.filter(e => e.id !== eventId))
     }
 
     if (alerts.length === 0) return null
 
-    const typeLabel = { code_blue: '🔵 CODE BLUE', trauma_override: '🚨 TRAUMA OVERRIDE', manual_escalation: '⚠️ ESCALATION' }
+    const typeLabel = { code_blue: '🚨 CODE BLUE', trauma_override: '🚨 TRAUMA OVERRIDE', manual_escalation: '⚠️ ESCALATION' }
 
     return (
         <div style={{ marginBottom: '1.25rem', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
@@ -65,10 +80,15 @@ function EscalationAlertBanner() {
                 const s = secs % 60
                 const timeStr = `${mins}:${String(s).padStart(2, '0')}`
                 const isSlaRisk = secs > 90
+                const meta = encounterMeta[ev.encounter_id] || {}
+                const patientName = meta.patient_name || 'Loading...'
+                const icuBed = meta.icu_bed
+                const isCodeBlue = ev.type === 'code_blue'
                 return (
                     <div key={ev.id} style={{
                         background: 'rgba(239,68,68,0.12)',
                         border: '2px solid var(--danger)',
+                        borderLeft: '6px solid var(--danger)',
                         borderRadius: 10,
                         padding: '0.85rem 1.25rem',
                         display: 'flex',
@@ -77,24 +97,42 @@ function EscalationAlertBanner() {
                         gap: '1rem',
                         animation: 'pulse-border 1.5s ease-in-out infinite',
                     }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', flexWrap: 'wrap' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', flexWrap: 'wrap', flex: 1 }}>
                             <span style={{ fontSize: '1rem', fontWeight: 800, color: 'var(--danger)', letterSpacing: '0.05em' }}>
                                 {typeLabel[ev.type] || '🚨 ESCALATION'}
                             </span>
-                            <span style={{ fontSize: '0.85rem', color: 'var(--text)' }}>
-                                Encounter <code style={{ background: 'var(--surface2)', padding: '0.1rem 0.3rem', borderRadius: 4 }}>{String(ev.encounter_id).slice(0, 8)}...</code>
+                            <span style={{ fontSize: '0.9rem', fontWeight: 700, color: '#f1f5f9' }}>
+                                {patientName}
                             </span>
+                            {icuBed && (
+                                <span style={{
+                                    background: 'rgba(239,68,68,0.2)', border: '1px solid #ef4444',
+                                    borderRadius: 6, padding: '0.2rem 0.6rem',
+                                    fontWeight: 800, fontSize: '0.78rem', color: '#fca5a5',
+                                    fontFamily: 'monospace', letterSpacing: '0.06em',
+                                }}>
+                                    🏥 {icuBed}
+                                </span>
+                            )}
                             <span style={{ fontSize: '0.85rem', color: isSlaRisk ? 'var(--danger)' : 'var(--warn)', fontWeight: 700, fontFamily: 'monospace' }}>
                                 ⏱ {timeStr}{isSlaRisk ? ' — SLA AT RISK' : ''}
                             </span>
                         </div>
+                        {/* Doctors are alerted to go to the room — no action required, just dismiss */}
                         <button
-                            className="btn btn-danger"
-                            style={{ fontWeight: 700, whiteSpace: 'nowrap', minWidth: 160 }}
-                            disabled={responding[ev.id]}
-                            onClick={() => handleRespond(ev.id)}
+                            onClick={() => handleDismiss(ev.id)}
+                            title="Dismiss this alert from your view"
+                            style={{
+                                background: 'rgba(239,68,68,0.12)', border: '1px solid rgba(239,68,68,0.35)',
+                                borderRadius: 8, padding: '0.4rem 0.85rem',
+                                fontWeight: 700, fontSize: '0.8rem', color: '#fca5a5',
+                                cursor: 'pointer', whiteSpace: 'nowrap', flexShrink: 0,
+                                transition: 'all 0.15s',
+                            }}
+                            onMouseEnter={e => { e.currentTarget.style.background = 'rgba(239,68,68,0.25)' }}
+                            onMouseLeave={e => { e.currentTarget.style.background = 'rgba(239,68,68,0.12)' }}
                         >
-                            {responding[ev.id] ? 'Confirming...' : '🚨 I Am Responding'}
+                            ✕ Dismiss
                         </button>
                     </div>
                 )
@@ -310,6 +348,111 @@ function ReferModal({ encounter, currentUserId, onClose, onDone }) {
     )
 }
 
+// ─── AI Insight Panel ────────────────────────────────────────
+function AiInsightPanel({ encounterId }) {
+    const [insight, setInsight] = useState(null)
+    const [loading, setLoading] = useState(false)
+    const [error, setError] = useState(null)
+
+    const generate = async () => {
+        setLoading(true); setError(null)
+        try {
+            const data = await InsightAPI.generate(encounterId)
+            setInsight(data)
+        } catch (e) {
+            setError('AI insight unavailable — using clinical judgment')
+        } finally {
+            setLoading(false)
+        }
+    }
+
+    const confColor = (c) => c === 'high' ? '#22c55e' : c === 'medium' ? '#eab308' : '#94a3b8'
+
+    return (
+        <div style={{
+            border: '1px solid rgba(99,102,241,0.25)', borderRadius: 10,
+            background: 'rgba(99,102,241,0.07)', marginBottom: '1.25rem', overflow: 'hidden'
+        }}>
+            <div style={{
+                display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                padding: '0.6rem 1rem', background: 'rgba(99,102,241,0.1)',
+                borderBottom: insight ? '1px solid rgba(99,102,241,0.2)' : 'none'
+            }}>
+                <span style={{ fontSize: '0.78rem', fontWeight: 700, color: '#818cf8', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+                    🧠 AI Clinical Insight
+                </span>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                    {insight?.cached && (
+                        <span style={{ fontSize: '0.68rem', color: '#64748b', fontWeight: 600 }}>✓ Cached</span>
+                    )}
+                    <button
+                        onClick={generate} disabled={loading}
+                        style={{
+                            fontSize: '0.72rem', fontWeight: 700, padding: '0.3rem 0.75rem',
+                            borderRadius: 6, border: 'none', cursor: loading ? 'not-allowed' : 'pointer',
+                            background: loading ? 'rgba(99,102,241,0.3)' : 'rgba(99,102,241,0.6)',
+                            color: '#e0e7ff', transition: 'all 0.15s'
+                        }}
+                    >
+                        {loading ? '⏳ Generating...' : insight ? '↻ Refresh' : '✦ Generate Insight'}
+                    </button>
+                </div>
+            </div>
+
+            {error && (
+                <div style={{ padding: '0.6rem 1rem', fontSize: '0.78rem', color: '#f87171' }}>⚠ {error}</div>
+            )}
+
+            {insight && !error && (
+                <div style={{ padding: '0.9rem 1rem', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                    {/* Differentials */}
+                    <div>
+                        <div style={{ fontSize: '0.68rem', fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: '0.5rem' }}>
+                            Differential Diagnoses
+                        </div>
+                        {(insight.differentials || []).map((d, i) => (
+                            <div key={i} style={{
+                                display: 'flex', alignItems: 'center', gap: '0.5rem',
+                                marginBottom: '0.35rem', fontSize: '0.82rem'
+                            }}>
+                                <span style={{
+                                    width: 8, height: 8, borderRadius: '50%', flexShrink: 0,
+                                    background: confColor(d.confidence)
+                                }} />
+                                <span style={{ color: '#e2e8f0', fontWeight: 500 }}>{d.condition}</span>
+                                <span style={{ fontSize: '0.65rem', color: confColor(d.confidence), fontWeight: 700, marginLeft: 'auto' }}>
+                                    {d.confidence?.toUpperCase()}
+                                </span>
+                            </div>
+                        ))}
+                    </div>
+                    {/* Investigations */}
+                    <div>
+                        <div style={{ fontSize: '0.68rem', fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: '0.5rem' }}>
+                            Suggested Investigations
+                        </div>
+                        {(insight.investigations || []).map((inv, i) => (
+                            <div key={i} style={{
+                                fontSize: '0.79rem', color: '#94a3b8', marginBottom: '0.25rem',
+                                display: 'flex', alignItems: 'flex-start', gap: '0.4rem'
+                            }}>
+                                <span style={{ color: '#6366f1', fontWeight: 800, marginTop: 1 }}>{i + 1}.</span>
+                                {inv}
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            )}
+
+            {insight?.disclaimer && (
+                <div style={{ padding: '0.4rem 1rem', fontSize: '0.65rem', color: '#475569', borderTop: '1px solid rgba(99,102,241,0.15)' }}>
+                    {insight.disclaimer}
+                </div>
+            )}
+        </div>
+    )
+}
+
 // ─── Assessment Modal ─────────────────────────────────────────
 function AssessmentModal({ encounter, onClose, onDone }) {
     const [notes, setNotes] = useState('')
@@ -419,6 +562,9 @@ function AssessmentModal({ encounter, onClose, onDone }) {
                     </div>
                 ) : (
                     <>
+                        {/* AI Clinical Insight Panel */}
+                        <AiInsightPanel encounterId={encounter.id} />
+
                         {/* Notes */}
                         <div className="form-group">
                             <label style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-muted)', letterSpacing: '0.05em' }}>
@@ -495,44 +641,27 @@ function AssessmentModal({ encounter, onClose, onDone }) {
 function MyCasesPage() {
     const { user } = useAuthStore()
     const [cases, setCases] = useState([])
-    const [pastCases, setPastCases] = useState([])
     const [loading, setLoading] = useState(true)
     const [rejectEnc, setRejectEnc] = useState(null)
-    const [escalateEnc, setEscalateEnc] = useState(null)
     const [referEnc, setReferEnc] = useState(null)
     const [assessEnc, setAssessEnc] = useState(null)
-    const [actionLoading, setActionLoading] = useState({})
 
     const load = useCallback(async () => {
         try {
-            const [mine, past] = await Promise.all([
-                EncounterAPI.list({ status: '', assigned_doctor: user?.id }).then(all =>
-                    Array.isArray(all) ? all.filter(e =>
-                        e.assigned_doctor === user?.id && !['completed', 'cancelled'].includes(e.status)
-                    ) : []
-                ),
-                EncounterAPI.list({ status: 'completed', assigned_doctor: user?.id })
-            ])
+            const mine = await EncounterAPI.list({ status: '', assigned_doctor: user?.id }).then(all =>
+                Array.isArray(all) ? all.filter(e =>
+                    e.assigned_doctor === user?.id && ['in_progress', 'escalated'].includes(e.status) && !e.assessment_completed
+                ) : []
+            )
             setCases(mine)
-            setPastCases(Array.isArray(past) ? past : [])
         } catch {
             setCases([])
-            setPastCases([])
         } finally {
             setLoading(false)
         }
     }, [user])
 
     useEffect(() => { load(); const t = setInterval(load, 30000); return () => clearInterval(t) }, [load])
-
-    const acceptCase = async (enc) => {
-        setActionLoading(prev => ({ ...prev, [enc.id]: 'accepting' }))
-        try {
-            await AllocationAPI.respond({ encounter_id: enc.id, accepted: true })
-            load()
-        } catch (err) { alert('Error: ' + (err.response?.data?.errors || err.message)) }
-        finally { setActionLoading(prev => ({ ...prev, [enc.id]: null })) }
-    }
 
     if (loading) return <div className="loading-center"><div className="spinner" /><span>Loading cases...</span></div>
 
@@ -545,7 +674,7 @@ function MyCasesPage() {
                         <LayoutDashboard className="text-blue-400" /> My Cases
                     </h1>
                     <p className="text-slate-400 text-sm mt-1">
-                        {cases.length} active patients requiring assessment
+                        {cases.length} accepted cases in progress
                     </p>
                 </div>
                 <button
@@ -559,7 +688,7 @@ function MyCasesPage() {
             {cases.length === 0 ? (
                 <div className="flex flex-col items-center justify-center py-20 bg-slate-900/40 backdrop-blur-md rounded-3xl border border-dashed border-slate-700/50">
                     <div className="text-5xl mb-4 opacity-20">🏥</div>
-                    <p className="text-slate-500 font-medium">No active clinical encounters found</p>
+                    <p className="text-slate-500 font-medium">No active cases — check <strong>Assignments</strong> for new cases to accept</p>
                     <button className="mt-4 text-blue-400 text-sm hover:underline" onClick={load}>Reload Dashboard</button>
                 </div>
             ) : (
@@ -586,10 +715,14 @@ function MyCasesPage() {
                                                 </div>
                                             </div>
                                         </div>
-                                        <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 bg-blue-500/10 rounded-xl border border-blue-500/20 text-blue-400 font-bold text-xs">
-                                            <MapPin size={12} />
-                                            F {enc.floor || '?'} · R {enc.room_number || '?'} · B {enc.bed_number || '?'}
-                                        </div>
+                                        {/* Location display (read-only — nurses manage location) */}
+                                        {enc.floor && (
+                                            <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-xl border font-bold text-xs"
+                                                style={{ background: 'rgba(59,130,246,0.1)', border: '1px solid rgba(59,130,246,0.2)', color: '#60a5fa' }}>
+                                                <MapPin size={12} />
+                                                F {enc.floor} · R {enc.room_number || '?'} · B {enc.bed_number || '?'}
+                                            </div>
+                                        )}
                                     </div>
 
                                     {/* Stats Row */}
@@ -660,17 +793,7 @@ function MyCasesPage() {
                                         )}
                                     </div>
 
-                                    {enc.status === 'assigned' && (
-                                        <button
-                                            className="w-full btn btn-success py-3 shadow-xl shadow-emerald-900/10 active:scale-95 transition-all"
-                                            disabled={actionLoading[enc.id] === 'accepting'}
-                                            onClick={() => acceptCase(enc)}
-                                        >
-                                            {actionLoading[enc.id] === 'accepting' ? '...' : <><CheckCircle size={16} /> Accept Case</>}
-                                        </button>
-                                    )}
-
-                                    {(enc.status === 'in_progress' || enc.status === 'assigned' || enc.status === 'escalated') && (
+                                    {(enc.status === 'in_progress' || enc.status === 'escalated') && (
                                         <button
                                             className="w-full btn btn-primary py-3 shadow-xl shadow-blue-900/10 active:scale-95 transition-all"
                                             onClick={() => setAssessEnc(enc)}
@@ -680,16 +803,22 @@ function MyCasesPage() {
                                     )}
 
                                     <div className="grid grid-cols-2 gap-2 mt-2">
-                                        <button className="btn btn-warn py-2.5 text-xs opacity-60 hover:opacity-100 transition-opacity" onClick={() => setEscalateEnc(enc)}>
+                                        <button className="btn btn-warn py-2.5 text-xs opacity-60 hover:opacity-100 transition-opacity" onClick={async () => {
+                                            const ok = window.confirm(`Send escalation alert for ${enc.patient_detail?.name || 'this patient'}?\n\nThis will notify the response team.`)
+                                            if (!ok) return
+                                            try {
+                                                await EscalationAPI.trigger({ encounter_id: enc.id, type: 'manual_escalation' })
+                                                load()
+                                            } catch (err) {
+                                                alert('Error: ' + (err.response?.data?.errors || err.message))
+                                            }
+                                        }}>
                                             <AlertTriangle size={14} /> ALERT
                                         </button>
                                         <button className="btn btn-ghost py-2.5 text-xs bg-slate-900 border-slate-800" onClick={() => setReferEnc(enc)}>
                                             <Repeat size={14} /> REFER
                                         </button>
                                     </div>
-                                    <button className="btn btn-ghost w-full py-2.5 text-xs bg-slate-900 border-slate-800 mt-1 opacity-40 hover:opacity-100 hover:text-rose-400 transition-all" onClick={() => setRejectEnc(enc)}>
-                                        <XCircle size={14} /> Reject Assignment
-                                    </button>
                                 </div>
                             </div>
                         </div>
@@ -697,20 +826,53 @@ function MyCasesPage() {
                 </div>
             )}
 
-            {/* ─── Past Patients Section ─── */}
-            <div className="flex items-center justify-between mt-16 mb-8 border-b border-slate-800 pb-4">
+            {rejectEnc && <RejectModal encounter={rejectEnc} onClose={() => setRejectEnc(null)} onDone={load} />}
+            {referEnc && <ReferModal encounter={referEnc} currentUserId={user?.id} onClose={() => setReferEnc(null)} onDone={load} />}
+            {assessEnc && <AssessmentModal encounter={assessEnc} onClose={() => setAssessEnc(null)} onDone={() => { setAssessEnc(null); load() }} />}
+        </div>
+    )
+}
+
+// ─── Patient History Page ─────────────────────────────────────
+function PatientHistoryPage() {
+    const { user } = useAuthStore()
+    const [pastCases, setPastCases] = useState([])
+    const [loading, setLoading] = useState(true)
+
+    const load = useCallback(async () => {
+        try {
+            const past = await EncounterAPI.list({ status: 'completed', assigned_doctor: user?.id })
+            setPastCases(Array.isArray(past) ? past : [])
+        } catch {
+            setPastCases([])
+        } finally {
+            setLoading(false)
+        }
+    }, [user])
+
+    useEffect(() => { load(); const t = setInterval(load, 60000); return () => clearInterval(t) }, [load])
+
+    if (loading) return <div className="loading-center"><div className="spinner" /><span>Loading history...</span></div>
+
+    return (
+        <div className="animate-in fade-in slide-in-from-bottom-4 duration-700">
+            <EscalationAlertBanner />
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
                 <div>
-                    <h2 className="text-2xl font-black text-white tracking-tight flex items-center gap-3">
-                        <History className="text-slate-500" /> Patient History
-                    </h2>
-                    <p className="text-slate-400 text-sm mt-1">{pastCases.length} records in current session</p>
+                    <h1 className="text-3xl font-black text-white tracking-tight flex items-center gap-3">
+                        <History className="text-slate-400" /> Patient History
+                    </h1>
+                    <p className="text-slate-400 text-sm mt-1">{pastCases.length} completed records</p>
                 </div>
-                <div className="px-3 py-1 bg-slate-900 border border-slate-700 rounded-lg text-[10px] font-black text-slate-500 tracking-[0.2em] uppercase">Archive</div>
+                <button className="btn btn-ghost bg-slate-900 border-slate-700 hover:bg-slate-800" onClick={load}>
+                    <RefreshCw size={16} className="text-blue-400" /> Refresh
+                </button>
             </div>
 
             {pastCases.length === 0 ? (
-                <div className="py-12 text-center bg-slate-900/20 rounded-3xl border border-slate-800/50">
-                    <p className="text-slate-600 text-sm italic font-medium">No archived records available for this session</p>
+                <div className="flex flex-col items-center justify-center py-20 bg-slate-900/40 backdrop-blur-md rounded-3xl border border-dashed border-slate-700/50">
+                    <div className="text-5xl mb-4 opacity-20">📋</div>
+                    <p className="text-slate-500 font-medium">No completed cases in your history yet</p>
                 </div>
             ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -724,10 +886,17 @@ function MyCasesPage() {
                                         <div className="text-[10px] text-slate-500 font-black tracking-widest uppercase mt-0.5">
                                             {new Date(enc.updated_at).toLocaleDateString()} · {new Date(enc.updated_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                                         </div>
+                                        {(enc.floor || enc.room_number) && (
+                                            <div className="flex items-center gap-1 mt-1 text-[10px] text-blue-400/70 font-medium">
+                                                <MapPin size={10} />
+                                                {[enc.floor && `F ${enc.floor}`, enc.room_number && `R ${enc.room_number}`, enc.bed_number && `B ${enc.bed_number}`].filter(Boolean).join(' · ')}
+                                            </div>
+                                        )}
                                     </div>
                                 </div>
-                                <div className="p-2 bg-emerald-500/5 text-emerald-500/50 rounded-lg">
-                                    <CheckCircle size={16} />
+                                <div className="flex flex-col items-end gap-2">
+                                    <div className="p-2 bg-emerald-500/5 text-emerald-500/50 rounded-lg"><CheckCircle size={16} /></div>
+                                    {enc.priority && <PriorityBadge priority={enc.priority} />}
                                 </div>
                             </div>
 
@@ -735,7 +904,7 @@ function MyCasesPage() {
                                 <div className="relative">
                                     <div className="absolute top-0 bottom-0 left-0 w-1 bg-emerald-500/20 rounded-full" />
                                     <div className="pl-6">
-                                        <div className="text-[10px] font-black text-emerald-500/80 uppercase tracking-[0.2em] mb-3">Electronic Medical Record Summary</div>
+                                        <div className="text-[10px] font-black text-emerald-500/80 uppercase tracking-[0.2em] mb-3">EMR Summary</div>
                                         <div className="text-sm text-slate-300 leading-relaxed line-clamp-3 group-hover:line-clamp-none transition-all duration-500">
                                             {enc.assessment_detail.report_text || 'No automated report available.'}
                                         </div>
@@ -754,17 +923,13 @@ function MyCasesPage() {
                     ))}
                 </div>
             )}
-
-            {rejectEnc && <RejectModal encounter={rejectEnc} onClose={() => setRejectEnc(null)} onDone={load} />}
-            {escalateEnc && <EscalateModal encounter={escalateEnc} onClose={() => setEscalateEnc(null)} onDone={load} />}
-            {referEnc && <ReferModal encounter={referEnc} currentUserId={user?.id} onClose={() => setReferEnc(null)} onDone={load} />}
-            {assessEnc && <AssessmentModal encounter={assessEnc} onClose={() => setAssessEnc(null)} onDone={() => { setAssessEnc(null); load() }} />}
         </div>
     )
 }
 
 // ─── Assignments Page ─────────────────────────────────────────
 function AssignmentsPage() {
+
     const { user } = useAuthStore()
     const [pending, setPending] = useState([])
     const [loading, setLoading] = useState(true)
@@ -882,6 +1047,7 @@ export default function DoctorDashboard() {
                 <Route index element={<Navigate to="my-cases" replace />} />
                 <Route path="my-cases" element={<MyCasesPage />} />
                 <Route path="assignments" element={<AssignmentsPage />} />
+                <Route path="history" element={<PatientHistoryPage />} />
             </Routes>
         </Shell>
     )

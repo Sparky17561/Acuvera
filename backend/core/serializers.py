@@ -1,6 +1,7 @@
 """
 Core serializers: User, Patient, Encounter, TriageData.
 """
+from django.utils import timezone
 from rest_framework import serializers
 from core.models import User, Patient, Encounter, TriageData, Department, HospitalConfig, Assessment
 
@@ -66,6 +67,7 @@ class EncounterSerializer(serializers.ModelSerializer):
     has_assessment = serializers.SerializerMethodField()
     assessment_completed = serializers.SerializerMethodField()
     assessment_detail = AssessmentSerializer(source="assessment", read_only=True)
+    eta_remaining_seconds = serializers.SerializerMethodField()
 
     class Meta:
         model = Encounter
@@ -76,6 +78,7 @@ class EncounterSerializer(serializers.ModelSerializer):
             "assigned_doctor", "assigned_doctor_detail", "rejection_count", "version",
             "notes", "is_deleted", "created_at", "updated_at",
             "triage_data", "has_assessment", "assessment_completed", "assessment_detail",
+            "eta_minutes", "eta_set_at", "eta_remaining_seconds",
         ]
         read_only_fields = ["id", "risk_score", "confidence_score", "version", "created_at", "updated_at"]
 
@@ -87,6 +90,14 @@ class EncounterSerializer(serializers.ModelSerializer):
             return obj.assessment.completed_at is not None
         except Exception:
             return False
+
+    def get_eta_remaining_seconds(self, obj):
+        """Compute seconds until ambulance arrives. Returns None if not incoming."""
+        if obj.status != 'incoming' or not obj.eta_minutes or not obj.eta_set_at:
+            return None
+        elapsed = (timezone.now() - obj.eta_set_at).total_seconds()
+        remaining = (obj.eta_minutes * 60) - elapsed
+        return max(int(remaining), 0)
 
 
 class AnalyzeTriageSerializer(serializers.Serializer):

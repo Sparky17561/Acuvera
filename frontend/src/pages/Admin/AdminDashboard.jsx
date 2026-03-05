@@ -5,7 +5,7 @@ import {
     ResponsiveContainer, CartesianGrid, LineChart, Line, Legend
 } from 'recharts'
 import Shell from '../../components/Shell'
-import { AdminAPI, AuthAPI } from '../../api/client'
+import { AdminAPI, AuthAPI, SimulateAPI } from '../../api/client'
 
 // ─── Overview Page ────────────────────────────────────────────
 function OverviewPage() {
@@ -54,8 +54,8 @@ function OverviewPage() {
                         Live system status — auto-refreshes every 60s
                     </p>
                 </div>
-                <button 
-                    className="flex items-center gap-2 px-4 py-2 bg-slate-900 border border-slate-700 rounded-xl text-sm font-semibold text-slate-200 hover:bg-slate-800 hover:border-slate-600 transition-all active:scale-95 shadow-lg shadow-black/20" 
+                <button
+                    className="flex items-center gap-2 px-4 py-2 bg-slate-900 border border-slate-700 rounded-xl text-sm font-semibold text-slate-200 hover:bg-slate-800 hover:border-slate-600 transition-all active:scale-95 shadow-lg shadow-black/20"
                     onClick={load}
                 >
                     <span className="text-blue-400">↻</span> Refresh Metrics
@@ -92,35 +92,35 @@ function OverviewPage() {
                         <ResponsiveContainer width="100%" height="100%">
                             <BarChart data={priorityChartData} barCategoryGap="25%">
                                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#334155" opacity={0.3} />
-                                <XAxis 
-                                    dataKey="name" 
-                                    axisLine={false} 
+                                <XAxis
+                                    dataKey="name"
+                                    axisLine={false}
                                     tickLine={false}
                                     tick={{ fill: '#64748b', fontSize: 10, fontWeight: 700 }}
                                     className="uppercase tracking-tighter"
                                 />
                                 <YAxis hide />
-                                <Tooltip 
+                                <Tooltip
                                     cursor={{ fill: 'rgba(255,255,255,0.03)' }}
-                                    contentStyle={{ 
-                                        backgroundColor: '#0f172a', 
-                                        borderRadius: '12px', 
+                                    contentStyle={{
+                                        backgroundColor: '#0f172a',
+                                        borderRadius: '12px',
                                         border: '1px solid #334155',
                                         boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.4)',
                                         fontSize: '12px'
-                                    }} 
+                                    }}
                                 />
-                                <Bar 
-                                    dataKey="value" 
+                                <Bar
+                                    dataKey="value"
                                     radius={[6, 6, 0, 0]}
                                     isAnimationActive={true}
                                     animationDuration={1000}
                                     animationEasing="ease-out"
                                 >
                                     {priorityChartData.map((entry, index) => (
-                                        <Bar 
-                                            key={`cell-${index}`} 
-                                            fill={COLOR_MAP[entry.name] || '#3b82f6'} 
+                                        <Bar
+                                            key={`cell-${index}`}
+                                            fill={COLOR_MAP[entry.name] || '#3b82f6'}
                                             opacity={0.8}
                                             className="hover:opacity-100 transition-opacity"
                                         />
@@ -143,7 +143,7 @@ function OverviewPage() {
                             </span>
                         )}
                     </div>
-                    
+
                     {alerts.length === 0 ? (
                         <div className="flex flex-col items-center justify-center py-12 text-slate-500">
                             <div className="text-4xl mb-4 bg-emerald-500/10 p-4 rounded-full text-emerald-500">✅</div>
@@ -430,11 +430,10 @@ function ConfigPage() {
                     <p className="text-slate-400 text-sm mt-1">Configure clinical thresholds and manage departments</p>
                 </div>
                 {msg && (
-                    <div className={`px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-widest border animate-in zoom-in-95 duration-300 ${
-                        msg.type === 'success' 
-                        ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400' 
+                    <div className={`px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-widest border animate-in zoom-in-95 duration-300 ${msg.type === 'success'
+                        ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400'
                         : 'bg-rose-500/10 border-rose-500/30 text-rose-400'
-                    }`}>
+                        }`}>
                         {msg.text}
                     </div>
                 )}
@@ -448,9 +447,9 @@ function ConfigPage() {
                             <span className="w-1.5 h-4 bg-blue-500 rounded-full" />
                             Global Configuration
                         </h2>
-                        <button 
+                        <button
                             className="px-4 py-2 bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white text-xs font-bold rounded-xl transition-all active:scale-95 shadow-lg shadow-blue-600/20"
-                            onClick={saveConfig} 
+                            onClick={saveConfig}
                             disabled={saving}
                         >
                             {saving ? 'Processing...' : 'Save All Changes'}
@@ -461,30 +460,30 @@ function ConfigPage() {
                         <div className="bg-slate-900/40 backdrop-blur-xl border border-slate-700/50 rounded-2xl p-6 space-y-6 shadow-xl shadow-black/5">
                             <div className="space-y-2">
                                 <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest pl-1">Hospital Name</label>
-                                <input 
+                                <input
                                     className="w-full bg-slate-950/50 border border-slate-700 rounded-xl px-4 py-3 text-white focus:ring-2 focus:ring-blue-500/50 outline-none transition-all placeholder:text-slate-700"
-                                    value={config.hospital_name || ''} 
-                                    onChange={e => setConfig(c => ({ ...c, hospital_name: e.target.value }))} 
+                                    value={config.hospital_name || ''}
+                                    onChange={e => setConfig(c => ({ ...c, hospital_name: e.target.value }))}
                                 />
                             </div>
 
                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                 <div className="space-y-2">
                                     <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest pl-1">Cases / Doctor</label>
-                                    <input 
+                                    <input
                                         type="number"
                                         className="w-full bg-slate-950/50 border border-slate-700 rounded-xl px-4 py-3 text-white focus:ring-2 focus:ring-blue-500/50 outline-none transition-all"
-                                        value={config.max_active_cases_per_doctor || 6} 
-                                        onChange={e => setConfig(c => ({ ...c, max_active_cases_per_doctor: parseInt(e.target.value) }))} 
+                                        value={config.max_active_cases_per_doctor || 6}
+                                        onChange={e => setConfig(c => ({ ...c, max_active_cases_per_doctor: parseInt(e.target.value) }))}
                                     />
                                 </div>
                                 <div className="space-y-2">
                                     <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest pl-1">Avg Revenue (₹)</label>
-                                    <input 
+                                    <input
                                         type="number"
                                         className="w-full bg-slate-950/50 border border-slate-700 rounded-xl px-4 py-3 text-white focus:ring-2 focus:ring-blue-500/50 outline-none transition-all"
-                                        value={config.avg_revenue_per_patient || 500} 
-                                        onChange={e => setConfig(c => ({ ...c, avg_revenue_per_patient: parseFloat(e.target.value) }))} 
+                                        value={config.avg_revenue_per_patient || 500}
+                                        onChange={e => setConfig(c => ({ ...c, avg_revenue_per_patient: parseFloat(e.target.value) }))}
                                     />
                                 </div>
                             </div>
@@ -493,17 +492,17 @@ function ConfigPage() {
                                 <h3 className="text-[10px] font-black text-slate-500 uppercase tracking-widest border-b border-slate-800 pb-2">SLA Thresholds (Seconds)</h3>
                                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                                     {[
-                                        ['sla_code_blue_seconds', 'Code Blue'], 
-                                        ['sla_trauma_seconds', 'Trauma'], 
+                                        ['sla_code_blue_seconds', 'Code Blue'],
+                                        ['sla_trauma_seconds', 'Trauma'],
                                         ['sla_manual_seconds', 'Manual']
                                     ].map(([k, lbl]) => (
                                         <div className="space-y-2" key={k}>
                                             <label className="text-[10px] font-bold text-slate-600 uppercase tracking-tighter pl-1">{lbl}</label>
-                                            <input 
+                                            <input
                                                 type="number"
                                                 className="w-full bg-slate-950/50 border border-slate-700 rounded-xl px-4 py-2 text-sm text-white focus:ring-2 focus:ring-blue-500/50 outline-none transition-all"
-                                                value={config[k] || ''} 
-                                                onChange={e => setConfig(c => ({ ...c, [k]: parseInt(e.target.value) }))} 
+                                                value={config[k] || ''}
+                                                onChange={e => setConfig(c => ({ ...c, [k]: parseInt(e.target.value) }))}
                                             />
                                         </div>
                                     ))}
@@ -517,11 +516,10 @@ function ConfigPage() {
                                         <div key={flag} className="flex items-center justify-between p-3 rounded-xl bg-slate-950/30 border border-slate-800/50 hover:border-slate-700 transition-colors group">
                                             <span className="text-xs font-bold text-slate-300 group-hover:text-white transition-colors capitalize">{flag.replace(/_/g, ' ')}</span>
                                             <button
-                                                className={`px-3 py-1 text-[10px] font-black rounded-lg active:scale-90 border transition-all duration-300 ${
-                                                    config.feature_flags[flag] 
-                                                    ? 'bg-emerald-500/10 border-emerald-500/40 text-emerald-400' 
+                                                className={`px-3 py-1 text-[10px] font-black rounded-lg active:scale-90 border transition-all duration-300 ${config.feature_flags[flag]
+                                                    ? 'bg-emerald-500/10 border-emerald-500/40 text-emerald-400'
                                                     : 'bg-slate-800/50 border-slate-700 text-slate-500'
-                                                }`}
+                                                    }`}
                                                 onClick={() => setConfig(c => ({ ...c, feature_flags: { ...c.feature_flags, [flag]: !c.feature_flags[flag] } }))}>
                                                 {config.feature_flags[flag] ? 'ENABLED' : 'DISABLED'}
                                             </button>
@@ -556,30 +554,30 @@ function ConfigPage() {
                         <form onSubmit={handleDeptSubmit} className="space-y-5">
                             <div className="space-y-2">
                                 <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest pl-1">Department Name</label>
-                                <input 
+                                <input
                                     className="w-full bg-slate-950/50 border border-slate-700 rounded-xl px-4 py-3 text-white focus:ring-2 focus:ring-emerald-500/50 outline-none transition-all placeholder:text-slate-800"
-                                    value={deptForm.name} 
-                                    onChange={e => setDeptForm({ ...deptForm, name: e.target.value })} 
-                                    required 
-                                    placeholder="e.g. Intensive Care Unit" 
+                                    value={deptForm.name}
+                                    onChange={e => setDeptForm({ ...deptForm, name: e.target.value })}
+                                    required
+                                    placeholder="e.g. Intensive Care Unit"
                                 />
                             </div>
                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                 <div className="space-y-2">
                                     <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest pl-1">Starve Threshold (m)</label>
-                                    <input 
-                                        type="number" 
+                                    <input
+                                        type="number"
                                         className="w-full bg-slate-950/50 border border-slate-700 rounded-xl px-4 py-3 text-white focus:ring-2 focus:ring-emerald-500/50 outline-none transition-all"
-                                        value={deptForm.starvation_threshold_minutes} 
-                                        onChange={e => setDeptForm({ ...deptForm, starvation_threshold_minutes: parseInt(e.target.value) })} 
-                                        required 
+                                        value={deptForm.starvation_threshold_minutes}
+                                        onChange={e => setDeptForm({ ...deptForm, starvation_threshold_minutes: parseInt(e.target.value) })}
+                                        required
                                     />
                                 </div>
                                 <div className="space-y-2">
                                     <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest pl-1">Clinical Profile</label>
-                                    <select 
+                                    <select
                                         className="w-full bg-slate-950/50 border border-slate-700 rounded-xl px-4 py-3 text-white focus:ring-2 focus:ring-emerald-500/50 outline-none transition-all"
-                                        value={deptForm.profile_type} 
+                                        value={deptForm.profile_type}
                                         onChange={e => setDeptForm({ ...deptForm, profile_type: e.target.value })}
                                     >
                                         <option value="general">General Ward</option>
@@ -593,9 +591,9 @@ function ConfigPage() {
                                     {editingDeptId ? 'Update Identity' : 'Commission Department'}
                                 </button>
                                 {editingDeptId && (
-                                    <button 
-                                        type="button" 
-                                        className="px-6 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold rounded-xl transition-all active:scale-95" 
+                                    <button
+                                        type="button"
+                                        className="px-6 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold rounded-xl transition-all active:scale-95"
                                         onClick={() => { setEditingDeptId(null); setDeptForm({ name: '', starvation_threshold_minutes: 60, profile_type: 'general' }) }}
                                     >
                                         Cancel
@@ -620,28 +618,27 @@ function ConfigPage() {
                                 {departments.map(d => (
                                     <div key={d.id} className="group flex items-center justify-between p-4 rounded-xl bg-slate-900/40 border border-slate-800/50 hover:border-slate-700/80 hover:bg-slate-900/60 transition-all shadow-sm">
                                         <div className="flex items-center gap-3">
-                                            <div className={`w-1 h-8 rounded-full ${
-                                                d.profile_type === 'critical_care' ? 'bg-rose-500' : d.profile_type === 'emergency' ? 'bg-amber-500' : 'bg-blue-500'
-                                            }`} />
+                                            <div className={`w-1 h-8 rounded-full ${d.profile_type === 'critical_care' ? 'bg-rose-500' : d.profile_type === 'emergency' ? 'bg-amber-500' : 'bg-blue-500'
+                                                }`} />
                                             <div>
                                                 <div className="text-sm font-bold text-slate-200 group-hover:text-white transition-colors">{d.name}</div>
                                                 <div className="text-[10px] font-medium text-slate-500 flex items-center gap-2 uppercase tracking-tight">
-                                                    SLA: {d.starvation_threshold_minutes}m 
-                                                    <span className="w-1 h-1 bg-slate-800 rounded-full" /> 
+                                                    SLA: {d.starvation_threshold_minutes}m
+                                                    <span className="w-1 h-1 bg-slate-800 rounded-full" />
                                                     {d.profile_type.replace(/_/g, ' ')}
                                                 </div>
                                             </div>
                                         </div>
                                         <div className="flex gap-2">
-                                            <button 
+                                            <button
                                                 className="p-2 text-slate-400 hover:text-blue-400 hover:bg-blue-400/10 rounded-lg transition-all"
                                                 title="Edit Department"
                                                 onClick={() => { setEditingDeptId(d.id); setDeptForm({ name: d.name, starvation_threshold_minutes: d.starvation_threshold_minutes, profile_type: d.profile_type }) }}
                                             >
                                                 ✏️
                                             </button>
-                                            <button 
-                                                className="p-2 text-slate-400 hover:text-rose-400 hover:bg-rose-400/10 rounded-lg transition-all" 
+                                            <button
+                                                className="p-2 text-slate-400 hover:text-rose-400 hover:bg-rose-400/10 rounded-lg transition-all"
                                                 title="Decommission"
                                                 onClick={() => toggleDeptStatus(d.id)}
                                             >
@@ -781,7 +778,7 @@ function StaffPage() {
         setEditingId(u.id)
         setForm({
             username: u.username || u.clerk_user_id || u.id.split('-')[0],
-            password: '', 
+            password: '',
             email: u.email || '',
             full_name: u.full_name || '',
             role: u.role || 'doctor',
@@ -840,11 +837,10 @@ function StaffPage() {
                     <p className="text-slate-400 text-sm mt-1">Manage hospital roles, credentials, and departmental access</p>
                 </div>
                 {msg && (
-                    <div className={`px-4 py-3 rounded-xl text-xs font-black uppercase tracking-widest border animate-in zoom-in-95 duration-300 shadow-lg ${
-                        msg.type === 'success' 
-                        ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400 shadow-emerald-500/5' 
+                    <div className={`px-4 py-3 rounded-xl text-xs font-black uppercase tracking-widest border animate-in zoom-in-95 duration-300 shadow-lg ${msg.type === 'success'
+                        ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400 shadow-emerald-500/5'
                         : 'bg-rose-500/10 border-rose-500/30 text-rose-400 shadow-rose-500/5'
-                    }`}>
+                        }`}>
                         {msg.text}
                     </div>
                 )}
@@ -871,19 +867,19 @@ function StaffPage() {
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                             <div className="space-y-2">
                                 <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest pl-1">Full Legal Name</label>
-                                <input 
+                                <input
                                     className="w-full bg-slate-950/50 border border-slate-700 rounded-2xl px-5 py-4 text-white focus:ring-4 focus:ring-indigo-500/20 outline-none transition-all placeholder:text-slate-800"
-                                    value={form.full_name} 
-                                    onChange={e => setForm({ ...form, full_name: e.target.value })} 
-                                    required 
+                                    value={form.full_name}
+                                    onChange={e => setForm({ ...form, full_name: e.target.value })}
+                                    required
                                     placeholder="e.g. Dr. Alexander Pierce"
                                 />
                             </div>
                             <div className="space-y-2">
                                 <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest pl-1">Operational Role</label>
-                                <select 
+                                <select
                                     className="w-full bg-slate-950/50 border border-slate-700 rounded-2xl px-5 py-4 text-white focus:ring-4 focus:ring-indigo-500/20 outline-none transition-all appearance-none cursor-pointer"
-                                    value={form.role} 
+                                    value={form.role}
                                     onChange={e => setForm({ ...form, role: e.target.value })}
                                 >
                                     <option value="doctor">Medical Doctor</option>
@@ -897,12 +893,12 @@ function StaffPage() {
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                             <div className="space-y-2">
                                 <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest pl-1">System Login ID</label>
-                                <input 
+                                <input
                                     className="w-full bg-slate-950/50 border border-slate-700 rounded-2xl px-5 py-4 text-white focus:ring-4 focus:ring-indigo-500/20 outline-none transition-all placeholder:text-slate-800"
-                                    value={form.username} 
-                                    onChange={e => setForm({ ...form, username: e.target.value })} 
-                                    placeholder="e.g. apierce_md" 
-                                    required 
+                                    value={form.username}
+                                    onChange={e => setForm({ ...form, username: e.target.value })}
+                                    placeholder="e.g. apierce_md"
+                                    required
                                 />
                             </div>
                             <div className="space-y-2">
@@ -910,13 +906,13 @@ function StaffPage() {
                                     {editingId ? 'Access Reset (Secret)' : 'Initial Password'}
                                     {editingId && <span className="ml-2 text-slate-600">(Optional)</span>}
                                 </label>
-                                <input 
+                                <input
                                     type="password"
                                     className="w-full bg-slate-950/50 border border-slate-700 rounded-2xl px-5 py-4 text-white focus:ring-4 focus:ring-indigo-500/20 outline-none transition-all placeholder:text-slate-800"
-                                    value={form.password} 
-                                    onChange={e => setForm({ ...form, password: e.target.value })} 
-                                    placeholder={editingId ? "Leave empty to retain" : "Temporary secure key"} 
-                                    required={!editingId} 
+                                    value={form.password}
+                                    onChange={e => setForm({ ...form, password: e.target.value })}
+                                    placeholder={editingId ? "Leave empty to retain" : "Temporary secure key"}
+                                    required={!editingId}
                                 />
                             </div>
                         </div>
@@ -924,12 +920,12 @@ function StaffPage() {
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                             <div className="space-y-2">
                                 <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest pl-1">Electronic Mail</label>
-                                <input 
-                                    type="email" 
+                                <input
+                                    type="email"
                                     className="w-full bg-slate-950/50 border border-slate-700 rounded-2xl px-5 py-4 text-white focus:ring-4 focus:ring-indigo-500/20 outline-none transition-all placeholder:text-slate-800"
-                                    value={form.email} 
-                                    onChange={e => setForm({ ...form, email: e.target.value })} 
-                                    required 
+                                    value={form.email}
+                                    onChange={e => setForm({ ...form, email: e.target.value })}
+                                    required
                                     placeholder="a.pierce@hospital.com"
                                 />
                             </div>
@@ -938,10 +934,10 @@ function StaffPage() {
                                     Assigned Unit
                                     {form.role === 'admin' && <span className="ml-2 text-slate-600">(Optional)</span>}
                                 </label>
-                                <select 
+                                <select
                                     className="w-full bg-slate-950/50 border border-slate-700 rounded-2xl px-5 py-4 text-white focus:ring-4 focus:ring-indigo-500/20 outline-none transition-all appearance-none cursor-pointer"
-                                    value={form.department_id} 
-                                    onChange={e => setForm({ ...form, department_id: e.target.value })} 
+                                    value={form.department_id}
+                                    onChange={e => setForm({ ...form, department_id: e.target.value })}
                                     required={form.role === 'doctor' || form.role === 'nurse'}
                                 >
                                     <option value="">Select unit deployment...</option>
@@ -951,19 +947,18 @@ function StaffPage() {
                         </div>
 
                         <div className="flex gap-4 pt-4">
-                            <button 
-                                type="submit" 
-                                className={`flex-1 py-4 rounded-2xl font-black text-sm uppercase tracking-[0.2em] shadow-xl transition-all active:scale-95 disabled:opacity-50 ${
-                                    editingId ? 'bg-indigo-600 hover:bg-indigo-500 text-white shadow-indigo-600/30' : 'bg-emerald-600 hover:bg-emerald-500 text-white shadow-emerald-600/30'
-                                }`}
+                            <button
+                                type="submit"
+                                className={`flex-1 py-4 rounded-2xl font-black text-sm uppercase tracking-[0.2em] shadow-xl transition-all active:scale-95 disabled:opacity-50 ${editingId ? 'bg-indigo-600 hover:bg-indigo-500 text-white shadow-indigo-600/30' : 'bg-emerald-600 hover:bg-emerald-500 text-white shadow-emerald-600/30'
+                                    }`}
                                 disabled={loading}
                             >
                                 {loading ? 'Synchronizing...' : (editingId ? 'Commit Update' : 'Authorize Personnel')}
                             </button>
                             {editingId && (
-                                <button 
-                                    type="button" 
-                                    className="px-8 bg-slate-800 hover:bg-slate-700 text-slate-400 font-bold rounded-2xl transition-all active:scale-95 uppercase text-xs tracking-widest" 
+                                <button
+                                    type="button"
+                                    className="px-8 bg-slate-800 hover:bg-slate-700 text-slate-400 font-bold rounded-2xl transition-all active:scale-95 uppercase text-xs tracking-widest"
                                     onClick={cancelEdit}
                                 >
                                     Abort
@@ -1005,11 +1000,10 @@ function StaffPage() {
                                                 <p className="text-[10px] font-medium text-slate-500 font-mono tracking-tighter opacity-80 mt-0.5 uppercase italic">{u.username || u.clerk_user_id || u.id.split('-')[0]}</p>
                                             </div>
                                         </div>
-                                        <div className={`px-2 py-0.5 rounded-lg border text-[10px] font-black uppercase tracking-widest ${
-                                            u.role === 'admin' ? 'bg-amber-500/10 border-amber-500/30 text-amber-500' :
+                                        <div className={`px-2 py-0.5 rounded-lg border text-[10px] font-black uppercase tracking-widest ${u.role === 'admin' ? 'bg-amber-500/10 border-amber-500/30 text-amber-500' :
                                             u.role === 'doctor' ? 'bg-blue-500/10 border-blue-500/30 text-blue-500' :
-                                            'bg-emerald-500/10 border-emerald-500/30 text-emerald-500'
-                                        }`}>
+                                                'bg-emerald-500/10 border-emerald-500/30 text-emerald-500'
+                                            }`}>
                                             {u.role.replace('_', ' ')}
                                         </div>
                                     </div>
@@ -1027,13 +1021,13 @@ function StaffPage() {
                                 </div>
 
                                 <div className="mt-6 flex gap-2">
-                                    <button 
+                                    <button
                                         className="flex-1 py-2 bg-slate-800/80 hover:bg-indigo-600 hover:text-white text-slate-400 text-[10px] font-black uppercase tracking-widest rounded-xl transition-all border border-slate-700/50 hover:border-indigo-500 active:scale-95"
                                         onClick={() => handleEdit(u)}
                                     >
                                         Edit Profile
                                     </button>
-                                    <button 
+                                    <button
                                         className="px-4 py-2 bg-slate-800/80 hover:bg-rose-600/20 hover:text-rose-400 text-slate-500 text-[10px] font-black rounded-xl transition-all border border-slate-700/50 hover:border-rose-500/40 active:scale-95"
                                         title="Disable Account"
                                         onClick={() => handleDelete(u.id)}
@@ -1073,7 +1067,7 @@ function StaffPage() {
                                         <div className="text-[9px] font-black text-slate-600 uppercase tracking-tighter truncate">{u.role}</div>
                                     </div>
                                 </div>
-                                <button 
+                                <button
                                     className="p-2 text-[10px] font-black text-indigo-400/40 hover:text-indigo-400 uppercase border border-indigo-500/10 hover:border-indigo-500/30 rounded-xl bg-indigo-500/5 transition-all active:scale-95"
                                     onClick={() => handleEnable(u)}
                                     title="Restore Authorization"
@@ -1089,6 +1083,201 @@ function StaffPage() {
     )
 }
 
+// ─── Simulation Page ──────────────────────────────────────────
+const SCENARIOS = [
+    {
+        id: 'cardiac_surge',
+        label: '❤️ Cardiac Surge',
+        desc: '30 patients flooding ER with cardiac symptoms — tachycardia, chest pain, low SpO₂',
+        color: '#ef4444', border: 'rgba(239,68,68,0.3)', bg: 'rgba(239,68,68,0.08)',
+    },
+    {
+        id: 'mass_casualty',
+        label: '🚨 Mass Casualty Event',
+        desc: 'Multi-trauma victims from an accident scene — head injuries, fractures, hemorrhage',
+        color: '#f97316', border: 'rgba(249,115,22,0.3)', bg: 'rgba(249,115,22,0.08)',
+    },
+    {
+        id: 'pneumonia_cluster',
+        label: '🫁 Pneumonia Cluster',
+        desc: 'Respiratory outbreak — low SpO₂, fever, elevated RR, vulnerable patients',
+        color: '#3b82f6', border: 'rgba(59,130,246,0.3)', bg: 'rgba(59,130,246,0.08)',
+    },
+    {
+        id: 'normal_ops',
+        label: '🟢 Normal Operations',
+        desc: 'Standard ER day — mix of low/moderate severity to test baseline queue handling',
+        color: '#22c55e', border: 'rgba(34,197,94,0.3)', bg: 'rgba(34,197,94,0.08)',
+    },
+]
+
+function SimulationPage() {
+    const [scenario, setScenario] = useState('cardiac_surge')
+    const [patientCount, setPatientCount] = useState(20)
+    const [running, setRunning] = useState(false)
+    const [result, setResult] = useState(null)
+    const [error, setError] = useState(null)
+    const [animCount, setAnimCount] = useState(0)
+
+    const runSim = async () => {
+        setRunning(true); setResult(null); setError(null); setAnimCount(0)
+        try {
+            const data = await SimulateAPI.run({ scenario, patient_count: patientCount })
+            // Animate counter
+            const total = data.patients_created || patientCount
+            let i = 0
+            const tick = setInterval(() => {
+                i = Math.min(i + Math.ceil(total / 20), total)
+                setAnimCount(i)
+                if (i >= total) clearInterval(tick)
+            }, 60)
+            setResult(data)
+        } catch (e) {
+            setError(e.response?.data?.message || 'Simulation failed')
+        } finally {
+            setRunning(false)
+        }
+    }
+
+    const selectedScenario = SCENARIOS.find(s => s.id === scenario)
+
+    return (
+        <div className="space-y-8 animate-in fade-in duration-500">
+            {/* Header */}
+            <div className="flex items-center justify-between pb-4 border-b border-slate-800/50">
+                <div>
+                    <h1 className="text-3xl font-black text-white tracking-tight flex items-center gap-3">
+                        <span className="p-2 bg-violet-500/10 rounded-xl border border-violet-500/20 text-violet-400">⚡</span>
+                        Live ER Simulation
+                    </h1>
+                    <p className="text-slate-400 text-sm mt-1.5">Flood the system with simulated patients. Watch AI triage in action.</p>
+                </div>
+                {result && (
+                    <div className="px-4 py-2 bg-emerald-500/10 border border-emerald-500/30 rounded-xl text-emerald-400 text-xs font-black uppercase tracking-widest animate-in zoom-in-95">
+                        ✅ Simulation Complete
+                    </div>
+                )}
+            </div>
+
+            {/* Scenario Selection */}
+            <div>
+                <div className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-4">Select Scenario</div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {SCENARIOS.map(s => (
+                        <button key={s.id} onClick={() => setScenario(s.id)}
+                            style={{
+                                background: scenario === s.id ? s.bg : 'rgba(15,23,42,0.4)',
+                                border: `2px solid ${scenario === s.id ? s.border : 'rgba(51,65,85,0.4)'}`,
+                                borderRadius: 16, padding: '1.25rem 1.5rem', cursor: 'pointer',
+                                textAlign: 'left', transition: 'all 0.2s', color: '#e2e8f0',
+                                transform: scenario === s.id ? 'scale(1.01)' : 'scale(1)',
+                            }}>
+                            <div style={{ fontWeight: 800, fontSize: '1rem', color: scenario === s.id ? s.color : '#cbd5e1', marginBottom: '0.35rem' }}>
+                                {s.label}
+                            </div>
+                            <div style={{ fontSize: '0.8rem', color: '#64748b', lineHeight: 1.4 }}>{s.desc}</div>
+                        </button>
+                    ))}
+                </div>
+            </div>
+
+            {/* Controls */}
+            <div className="flex items-end gap-6 bg-slate-900/40 backdrop-blur-xl border border-slate-700/50 rounded-2xl p-6 shadow-xl">
+                <div>
+                    <div className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2">Patient Count</div>
+                    <div className="flex items-center gap-3">
+                        {[10, 20, 30, 50].map(n => (
+                            <button key={n} onClick={() => setPatientCount(n)}
+                                className={`px-4 py-2.5 rounded-xl text-sm font-black border transition-all active:scale-95 ${patientCount === n
+                                        ? 'bg-violet-500/20 border-violet-500/50 text-violet-300'
+                                        : 'bg-slate-800/50 border-slate-700 text-slate-400 hover:border-slate-600'
+                                    }`}>{n}</button>
+                        ))}
+                    </div>
+                </div>
+                <button onClick={runSim} disabled={running}
+                    style={{
+                        marginLeft: 'auto', padding: '1rem 2.5rem', borderRadius: 14, border: 'none',
+                        background: running
+                            ? 'rgba(139,92,246,0.3)'
+                            : `linear-gradient(135deg, ${selectedScenario?.color || '#6366f1'}, #6366f1)`,
+                        color: '#fff', fontWeight: 800, fontSize: '1.05rem', cursor: running ? 'not-allowed' : 'pointer',
+                        boxShadow: running ? 'none' : '0 0 30px rgba(99,102,241,0.4)', transition: 'all 0.2s',
+                        display: 'flex', alignItems: 'center', gap: '0.6rem',
+                    }}>
+                    {running ? (
+                        <><div style={{ width: 18, height: 18, border: '2px solid rgba(255,255,255,0.3)', borderTopColor: '#fff', borderRadius: '50%', animation: 'spin 0.7s linear infinite' }} /> Simulating...</>
+                    ) : (
+                        <>⚡ LAUNCH SIMULATION</>
+                    )}
+                </button>
+            </div>
+
+            {error && (
+                <div className="bg-rose-500/10 border border-rose-500/30 rounded-2xl p-4 text-rose-400 font-semibold">
+                    ⚠ {error}
+                </div>
+            )}
+
+            {/* Live counter */}
+            {running && (
+                <div className="flex flex-col items-center justify-center py-12 bg-slate-900/60 backdrop-blur-xl border border-slate-700/50 rounded-3xl">
+                    <div className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-3">Injecting Patients into ER</div>
+                    <div className="text-7xl font-black text-violet-400" style={{ fontVariantNumeric: 'tabular-nums' }}>{animCount}</div>
+                    <div className="text-slate-500 text-sm mt-2">patients processed</div>
+                    <div className="mt-6 w-48 h-1.5 bg-slate-800 rounded-full overflow-hidden">
+                        <div className="h-full bg-gradient-to-r from-violet-500 to-blue-500 rounded-full transition-all duration-300"
+                            style={{ width: `${Math.min((animCount / patientCount) * 100, 100)}%` }} />
+                    </div>
+                </div>
+            )}
+
+            {/* Results */}
+            {result && !running && (
+                <div className="space-y-6">
+                    <div className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Demo Metrics</div>
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                        {[
+                            { label: 'Patients Created', value: result.patients_created, icon: '🧑‍⚕️', color: 'text-blue-400' },
+                            { label: 'Auto-Assigned', value: result.auto_assigned, icon: '✅', color: 'text-emerald-400' },
+                            { label: 'Escalations', value: result.escalations_triggered, icon: '🚨', color: 'text-rose-400' },
+                            { label: 'Unassigned', value: result.patients_created - result.auto_assigned, icon: '⚠️', color: 'text-amber-400' },
+                        ].map(s => (
+                            <div key={s.label} className="bg-slate-900/50 backdrop-blur-xl border border-slate-700/50 rounded-2xl p-5 text-center shadow-xl">
+                                <div className="text-3xl mb-2">{s.icon}</div>
+                                <div className={`text-4xl font-black ${s.color} tracking-tighter`}>{s.value ?? 0}</div>
+                                <div className="text-[10px] font-black text-slate-600 uppercase tracking-widest mt-2">{s.label}</div>
+                            </div>
+                        ))}
+                    </div>
+                    {result.priority_breakdown && (
+                        <div className="bg-slate-900/40 border border-slate-700/50 rounded-2xl p-6">
+                            <div className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-4">Priority Breakdown</div>
+                            <div className="flex gap-3 flex-wrap">
+                                {Object.entries(result.priority_breakdown).map(([p, count]) => (
+                                    <div key={p} className={`flex items-center gap-2 px-4 py-2 rounded-xl border bg-slate-950/40 ${p === 'critical' ? 'border-rose-500/30 text-rose-400' :
+                                            p === 'high' ? 'border-orange-500/30 text-orange-400' :
+                                                p === 'moderate' ? 'border-amber-500/30 text-amber-400' :
+                                                    'border-emerald-500/30 text-emerald-400'
+                                        }`}>
+                                        <span className="font-black text-xl">{count}</span>
+                                        <span className="text-[10px] font-black uppercase tracking-widest opacity-70">{p}</span>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    )}
+                    <div className="bg-slate-900/30 border border-slate-800/50 rounded-2xl p-4 text-center">
+                        <p className="text-slate-500 text-xs font-medium">
+                            Go to <strong className="text-blue-400">ED Queue</strong> (Nurse view) to see all {result.patients_created} patients sorted by AI triage priority in real-time.
+                        </p>
+                    </div>
+                </div>
+            )}
+        </div>
+    )
+}
+
 export default function AdminDashboard() {
     return (
         <Shell>
@@ -1097,6 +1286,7 @@ export default function AdminDashboard() {
                 <Route path="overview" element={<OverviewPage />} />
                 <Route path="starvation" element={<StarvationPage />} />
                 <Route path="forecast" element={<ForecastPage />} />
+                <Route path="simulate" element={<SimulationPage />} />
                 <Route path="config" element={<ConfigPage />} />
                 <Route path="staff" element={<StaffPage />} />
             </Routes>
