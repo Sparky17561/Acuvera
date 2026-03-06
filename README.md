@@ -12,8 +12,9 @@
 6. [Engine 3: Starvation Protection & SLA Adherence](#6-engine-3-starvation-protection--sla-adherence)
 7. [Engine 4: High-Stakes Escalation & Interruption Handling](#7-engine-4-high-stakes-escalation--interruption-handling)
 8. [Engine 5: Post-Encounter LLM Processing & Medical Scribing](#8-engine-5-post-encounter-llm-processing--medical-scribing)
-9. [Technical Architecture & Strict Constraints](#9-technical-architecture--strict-constraints)
-10. [Step-by-Step Validation & Demo Guide](#10-step-by-step-validation--demo-guide)
+9. [Engine 6: Executive Operations & AI Insight Assistant](#9-engine-6-executive-operations--ai-insight-assistant)
+10. [Technical Architecture & Strict Constraints](#10-technical-architecture--strict-constraints)
+11. [Step-by-Step Validation & Demo Guide](#11-step-by-step-validation--demo-guide)
 
 ---
 
@@ -160,11 +161,34 @@ It packages this into a highly optimized prompt and fires it via the ultra-low l
 
 ### 8.4 Deterministic Output Structuring
 The prompt aggressively forces the LLM to output ONLY valid JSON. It demands specific fields: `chief_complaint`, `clinical_summary`, `suggested_investigations`, and `disclaimer`. 
-The backend catches this JSON, validates it against the schema, and saves it to the database. This allows nurses and administrators to pull up a beautifully formatted, AI-generated "Encounter Report" instantly, summarizing hours of medical context into a 30-second read.
+The backend catches this JSON, validates it against the schema, and saves it to the database. 
+
+To ensure maximum readability, both the **Doctor Dashboard (Patient History)** and **Nurse Dashboard (Report Viewer)** utilize a custom `<FormattedReport />` React component. This component dynamically parses incoming ASCII text, detects section dividers, strips redundant fallback data, and renders a deeply styled, glassmorphism-inspired clinical report with distinct headers and key-value chips.
 
 ---
 
-## 9. Technical Architecture & Strict Constraints
+## 9. Engine 6: Executive Operations & AI Insight Assistant
+While clinical staff require patient-specific data, Hospital Administrators require macro-level operational telemetry.
+
+### 9.1 The Operations AI Assistant
+The Admin Dashboard features a persistent, floating AI Chatbot positioned at the bottom right. This bot acts as the hospital's "Operations Chief."
+When opened, the frontend automatically bundles a live JSON payload containing real-time metrics:
+- Active Patient Count
+- Critical Case Count
+- Starved Cases (SLA Breaches)
+- Average Wait Times & Queue Load
+- Live Doctor Utilization Percentages
+
+### 9.2 Context-Aware Answers & Hallucination Defense
+The AI Assistant processes this deterministic payload alongside the Administrator's prompt (e.g., *"Why are wait times so high?"*). 
+To prevent dangerous LLM hallucinations, the backend enforces a massive system prompt override: it strictly defines "Starvation" as an SLA wait-time breach (not a lack of food), and explicitly commands the engine to only formulate answers derived from the provided structural metrics, keeping responses authoritative and actionable.
+
+### 9.3 Deterministic Offline Mode
+If the GROQ Cloud connection drops or the `LLM_ENABLED` feature flag is explicitly turned off via the database, the AI Assistant does not crash. It intercepts the failure and dynamically generates a beautifully formatted, Markdown-powered "Hospital Operations Summary" directly from local deterministic telemetry, parsing prompts for keywords (like "Wait", "Starving", "Staff") to intelligently route offline responses.
+
+---
+
+## 10. Technical Architecture & Strict Constraints
 Acuvera was built adhering to extremely strict technological boundaries to ensure deployability, stability, and maintainability.
 
 ### 9.1 The Backend (Django + PostgreSQL)
