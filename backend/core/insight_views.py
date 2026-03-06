@@ -236,6 +236,13 @@ class InsightView(APIView):
 
         insight["disclaimer"] = DISCLAIMER
 
+        # Add risk prediction
+        try:
+            from triage.risk_model import compute_risk_prediction
+            insight["risk_prediction"] = compute_risk_prediction(vitals, symptoms, enc.patient.age, enc.risk_score)
+        except Exception as e:
+            logger.error("Risk prediction failed for insight %s: %s", pk, e)
+
         # Cache on the encounter
         enc.ai_insight_json = insight
         enc.save(update_fields=["ai_insight_json"])

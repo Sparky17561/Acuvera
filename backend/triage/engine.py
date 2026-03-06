@@ -11,6 +11,7 @@ from django.db import transaction
 from django.utils import timezone as dj_tz
 
 from core.audit import log_audit, model_snapshot
+from triage.risk_model import compute_risk_prediction
 
 logger = logging.getLogger("acuvera.triage.engine")
 
@@ -349,6 +350,12 @@ def compute_triage(encounter_id: str, vitals: dict, symptoms: list, red_flags: d
 
             vitals_panel = build_vitals_panel(vitals, dept_config)
             symptoms_contribution = build_symptoms_contribution(symptoms)
+            
+            try:
+                risk_prediction = compute_risk_prediction(vitals, symptoms, patient_age, MAX_RISK_SCORE)
+            except Exception as e:
+                logger.error("Risk prediction failed for encounter %s: %s", encounter_id, e)
+                risk_prediction = None
 
             return {
                 "encounter_id": str(enc.id),
@@ -365,6 +372,23 @@ def compute_triage(encounter_id: str, vitals: dict, symptoms: list, red_flags: d
                     f"CRITICAL — Hard override triggered: {override_reason}. "
                     f"Immediate resuscitation or physician evaluation required."
                 ),
+                "triage": {
+                    "priority": "critical",
+                    "risk_score": MAX_RISK_SCORE,
+                    "effective_score": MAX_RISK_SCORE,
+                    "confidence_score": confidence,
+                    "reasons": [override_reason],
+                },
+                "explainability": {
+                    "vitals_panel": vitals_panel,
+                    "symptoms_contribution": symptoms_contribution,
+                    "risk_factors": [{"factor": override_reason, "points": f"+{MAX_RISK_SCORE}", "category": "override"}],
+                    "final_priority_explanation": (
+                        f"CRITICAL — Hard override triggered: {override_reason}. "
+                        f"Immediate resuscitation or physician evaluation required."
+                    ),
+                },
+                "risk_prediction": risk_prediction,
             }
 
         # Step 3: Weighted scoring
@@ -375,6 +399,8 @@ def compute_triage(encounter_id: str, vitals: dict, symptoms: list, red_flags: d
         aging_point_unit = dept_config.get("aging_point_unit", DEFAULT_AGING_POINT_UNIT)
         minutes_waited = (dj_tz.now() - enc.created_at).total_seconds() / 60.0
         aging_bonus = math.floor(minutes_waited / aging_minutes_unit) * aging_point_unit
+        MAX_AGING_BONUS = 40
+        aging_bonus = min(MAX_AGING_BONUS, aging_bonus)
         if aging_bonus > 0:
             reasons.append(f"Waiting time bonus: +{aging_bonus} pts ({minutes_waited:.0f} min waited)")
 
@@ -396,9 +422,22 @@ def compute_triage(encounter_id: str, vitals: dict, symptoms: list, red_flags: d
         enc.version += 1
         enc.save()
 
+        try:
+            risk_prediction = compute_risk_prediction(vitals, symptoms, patient_age, effective_score)
+        except Exception as e:
+            logger.error("Risk prediction failed for encounter %s: %s", encounter_id, e)
+            risk_prediction = None
+
+        log_metadata = {"score": effective_score, "reasons": reasons}
+        if risk_prediction:
+            log_metadata["risk_prediction_summary"] = {
+                "overall_risk": risk_prediction.get("overall_deterioration_risk"),
+                "risk_level": risk_prediction.get("risk_level")
+            }
+
         _upsert_triage_data(enc, vitals, symptoms, red_flags, completeness)
         log_audit("triage.analyze", "encounter", enc.id, None, pre, model_snapshot(enc), request,
-                  metadata={"score": effective_score, "reasons": reasons})
+                  metadata=log_metadata)
 
         logger.info(
             "Triage complete encounter=%s priority=%s score=%d confidence=%d reasons=%d",
@@ -435,6 +474,21 @@ def compute_triage(encounter_id: str, vitals: dict, symptoms: list, red_flags: d
             "symptoms_contribution": symptoms_contribution,
             "risk_factors": risk_factors,
             "final_priority_explanation": final_explanation,
+            "triage": {
+                "priority": priority,
+                "risk_score": base_score,
+                "effective_score": effective_score,
+                "aging_bonus": aging_bonus,
+                "confidence_score": confidence,
+                "reasons": reasons,
+            },
+            "explainability": {
+                "vitals_panel": vitals_panel,
+                "symptoms_contribution": symptoms_contribution,
+                "risk_factors": risk_factors,
+                "final_priority_explanation": final_explanation,
+            },
+            "risk_prediction": risk_prediction,
         }
 
 

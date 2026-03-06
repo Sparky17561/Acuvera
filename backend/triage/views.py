@@ -87,6 +87,9 @@ class AnalyzeTriageView(APIView):
             "symptoms_contribution": result.get("symptoms_contribution", []),
             "risk_factors": result.get("risk_factors", []),
             "final_priority_explanation": result.get("final_priority_explanation", explanation_text),
+            "explainability": result.get("explainability"),
+            "triage": result.get("triage"),
+            "risk_prediction": result.get("risk_prediction"),
         })
 
     def _call_llm_parse(self, raw_text: str, enc, feature_flags: dict) -> dict | None:
