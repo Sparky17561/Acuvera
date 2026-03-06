@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { Routes, Route, Navigate } from 'react-router-dom'
 import {
     AreaChart, Area, BarChart, Bar, XAxis, YAxis, Tooltip,
-    ResponsiveContainer, CartesianGrid, LineChart, Line, Legend
+    ResponsiveContainer, CartesianGrid, LineChart, Line, Legend, Cell
 } from 'recharts'
 import Shell from '../../components/Shell'
 import { AdminAPI, AuthAPI, SimulateAPI } from '../../api/client'
@@ -12,6 +12,8 @@ function OverviewPage() {
     const [data, setData] = useState(null)
     const [alerts, setAlerts] = useState([])
     const [loading, setLoading] = useState(true)
+    const [clearing, setClearing] = useState(false)
+    const [clearMsg, setClearMsg] = useState(null)
 
     const load = useCallback(async () => {
         try {
@@ -26,6 +28,25 @@ function OverviewPage() {
     }, [])
 
     useEffect(() => { load(); const t = setInterval(load, 60000); return () => clearInterval(t) }, [load])
+
+    const handleClearAll = async (e) => {
+        const withPatients = e?.shiftKey
+        const msg = withPatients
+            ? 'Delete ALL encounters AND simulation patients? This cannot be undone.'
+            : 'Soft-delete ALL encounters (patients are kept)? This is reversible.'
+        if (!window.confirm(msg)) return
+        setClearing(true); setClearMsg(null)
+        try {
+            const result = await AdminAPI.clearEncounters(withPatients ? 'all' : 'encounters')
+            setClearMsg({ type: 'success', text: `✅ Cleared ${result.encounters_cleared} encounter(s)${result.patients_cleared > 0 ? ` and ${result.patients_cleared} patient(s)` : ''}.` })
+            await load()
+        } catch (err) {
+            setClearMsg({ type: 'danger', text: '❌ ' + (err.response?.data?.errors || err.message) })
+        } finally {
+            setClearing(false)
+            setTimeout(() => setClearMsg(null), 5000)
+        }
+    }
 
     if (loading) return (
         <div className="flex flex-col items-center justify-center h-64 gap-4 text-slate-400">
@@ -54,12 +75,28 @@ function OverviewPage() {
                         Live system status — auto-refreshes every 60s
                     </p>
                 </div>
-                <button
-                    className="flex items-center gap-2 px-4 py-2 bg-slate-900 border border-slate-700 rounded-xl text-sm font-semibold text-slate-200 hover:bg-slate-800 hover:border-slate-600 transition-all active:scale-95 shadow-lg shadow-black/20"
-                    onClick={load}
-                >
-                    <span className="text-blue-400">↻</span> Refresh Metrics
-                </button>
+                <div className="flex items-center gap-3">
+                    {clearMsg && (
+                        <div className={`px-3 py-1.5 rounded-lg text-xs font-bold border ${clearMsg.type === 'success'
+                            ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400'
+                            : 'bg-rose-500/10 border-rose-500/30 text-rose-400'
+                            }`}>{clearMsg.text}</div>
+                    )}
+                    <button
+                        className="flex items-center gap-2 px-4 py-2 bg-rose-950/40 border border-rose-800/50 rounded-xl text-sm font-semibold text-rose-400 hover:bg-rose-900/40 hover:border-rose-700 transition-all active:scale-95 shadow-lg shadow-black/20"
+                        onClick={handleClearAll}
+                        disabled={clearing}
+                        title="Shift+Click to also delete simulation patients"
+                    >
+                        {clearing ? <><span className="w-3.5 h-3.5 border-2 border-rose-700 border-t-rose-400 rounded-full animate-spin inline-block" /> Clearing...</> : '🗑 Clear Encounters'}
+                    </button>
+                    <button
+                        className="flex items-center gap-2 px-4 py-2 bg-slate-900 border border-slate-700 rounded-xl text-sm font-semibold text-slate-200 hover:bg-slate-800 hover:border-slate-600 transition-all active:scale-95 shadow-lg shadow-black/20"
+                        onClick={load}
+                    >
+                        <span className="text-blue-400">↻</span> Refresh Metrics
+                    </button>
+                </div>
             </div>
 
             {/* Stats row */}
@@ -127,11 +164,10 @@ function OverviewPage() {
                                     animationEasing="ease-out"
                                 >
                                     {priorityChartData.map((entry, index) => (
-                                        <Bar
+                                        <Cell
                                             key={`cell-${index}`}
                                             fill={COLOR_MAP[entry.name] || '#3b82f6'}
-                                            opacity={0.8}
-                                            className="hover:opacity-100 transition-opacity"
+                                            opacity={0.85}
                                         />
                                     ))}
                                 </Bar>
@@ -716,7 +752,9 @@ function StarvationPage() {
                                     <td><span className={`badge badge-${enc.priority}`}>{enc.priority}</span></td>
                                     <td style={{ color: 'var(--danger)', fontWeight: 700 }}>{enc.wait_minutes}m</td>
                                     <td style={{ color: 'var(--text-muted)' }}>{enc.threshold_minutes}m</td>
-                                    <td style={{ color: 'var(--text-muted)' }}>{enc.department}</td>
+                                    <td style={{ color: 'var(--text-muted)' }}>
+                                        {enc.department_name || depts.find(d => d.id === enc.department)?.name || enc.department || '—'}
+                                    </td>
                                     <td style={{ color: enc.assigned_doctor_detail ? 'var(--text)' : 'var(--warn)' }}>
                                         {enc.assigned_doctor_detail?.full_name || '⚠ Unassigned'}
                                     </td>

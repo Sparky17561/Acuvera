@@ -69,11 +69,12 @@ class EncounterSerializer(serializers.ModelSerializer):
     assessment_detail = AssessmentSerializer(source="assessment", read_only=True)
     eta_remaining_seconds = serializers.SerializerMethodField()
     code_blue_acknowledged_by_name = serializers.SerializerMethodField()
+    department_name = serializers.SerializerMethodField()
 
     class Meta:
         model = Encounter
         fields = [
-            "id", "patient", "patient_detail", "department",
+            "id", "patient", "patient_detail", "department", "department_name",
             "floor", "room_number", "bed_number",
             "status", "triage_stage", "priority", "risk_score", "confidence_score",
             "assigned_doctor", "assigned_doctor_detail", "rejection_count", "version",
@@ -107,6 +108,9 @@ class EncounterSerializer(serializers.ModelSerializer):
         if obj.code_blue_acknowledged_by:
             return obj.code_blue_acknowledged_by.full_name
         return None
+
+    def get_department_name(self, obj):
+        return obj.department.name if obj.department else None
 
 
 class AnalyzeTriageSerializer(serializers.Serializer):

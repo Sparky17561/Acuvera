@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { Routes, Route, Navigate, useNavigate } from 'react-router-dom'
 import Shell from '../../components/Shell'
-import { EncounterAPI, PatientAPI, TriageAPI, AllocationAPI, EscalationAPI, AssessmentAPI, AdminAPI } from '../../api/client'
+import { EncounterAPI, PatientAPI, TriageAPI, AllocationAPI, EscalationAPI, AssessmentAPI } from '../../api/client'
 import { Stethoscope, UserPlus, UserCog, FileText, AlertTriangle, RefreshCw } from 'lucide-react'
 import { saveDraft, getAllDrafts, deleteDraft } from '../../store/offlineStore'
 
@@ -570,43 +570,82 @@ function TriageModal({ encounter, onClose, onResult }) {
                 ) : (
                     <form onSubmit={handleSubmit}>
                         <div className="form-group">
-                            <label style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                <span>Nurse Dictation / Chief Complaint <span style={{ color: 'var(--text-muted)', fontWeight: 400, fontSize: '0.72rem' }}>— speaks Hinglish/English</span></span>
-                                <button type="button" className="btn btn-ghost" style={{ padding: '0.2rem 0.5rem', fontSize: '0.75rem', color: listening ? 'var(--danger)' : 'var(--primary)', border: listening ? '1px solid var(--danger)' : '1px solid var(--primary)' }} onClick={toggleVoice}>
+                            {/* ─── Chief Complaint Label ─── */}
+                            <label style={{ marginBottom: '0.4rem', display: 'block', fontSize: '0.82rem', fontWeight: 600, color: 'var(--text-muted)', letterSpacing: '0.03em' }}>
+                                Chief Complaint / Nurse Dictation
+                                <span style={{ fontWeight: 400, fontSize: '0.72rem', marginLeft: '0.4rem' }}>— speaks Hinglish/English</span>
+                            </label>
+
+                            {/* ─── Dictate + Process toolbar ABOVE textarea ─── */}
+                            <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '0.5rem', alignItems: 'center', flexWrap: 'wrap' }}>
+                                <button
+                                    type="button"
+                                    onClick={toggleVoice}
+                                    style={{
+                                        padding: '0.45rem 1rem', borderRadius: 8, fontSize: '0.8rem', fontWeight: 700,
+                                        cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.4rem',
+                                        background: listening ? 'rgba(239,68,68,0.15)' : 'rgba(59,130,246,0.12)',
+                                        color: listening ? '#f87171' : '#60a5fa',
+                                        border: listening ? '1px solid rgba(239,68,68,0.5)' : '1px solid rgba(59,130,246,0.4)',
+                                        transition: 'all 0.15s',
+                                        animation: listening ? 'codeblue-pulse 0.8s ease-in-out infinite' : 'none',
+                                    }}
+                                >
                                     {listening ? '🎤 Listening...' : '🎙️ Dictate'}
                                 </button>
-                            </label>
+
+                                {form.raw_input_text.length > 5 && (
+                                    <button
+                                        type="button"
+                                        onClick={applyVitalsToFields}
+                                        style={{
+                                            padding: '0.45rem 1.1rem', borderRadius: 8, fontSize: '0.8rem', fontWeight: 700,
+                                            cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.4rem',
+                                            background: 'rgba(99,102,241,0.18)', color: '#a5b4fc',
+                                            border: '1px solid rgba(99,102,241,0.45)',
+                                            transition: 'all 0.15s',
+                                        }}
+                                    >
+                                        ⚡ Process
+                                    </button>
+                                )}
+
+                                {listening && (
+                                    <span style={{ fontSize: '0.72rem', color: '#f87171', fontWeight: 600, animation: 'codeblue-pulse 1s ease-in-out infinite' }}>
+                                        ● Recording — speak clearly
+                                    </span>
+                                )}
+                                {!listening && !form.raw_input_text && (
+                                    <span style={{ fontSize: '0.72rem', color: '#475569' }}>
+                                        Press Dictate, speak vitals, then hit Process
+                                    </span>
+                                )}
+                            </div>
+
                             <textarea
-                                rows={2}
-                                placeholder="e.g. 'BP 120/80, pulse 110 bpm, SpO2 94%, patient has chest pain and is sweating' — vitals auto-extracted"
+                                rows={3}
+                                placeholder={`e.g. 'BP 120/80, pulse 110 bpm, SpO2 94%, patient has chest pain and is sweating'\n→ Press Process to auto-fill vitals fields below`}
                                 value={form.raw_input_text}
                                 onChange={e => {
                                     setForm(f => ({ ...f, raw_input_text: e.target.value }))
                                     extractVitalsFromText(e.target.value)
                                 }}
+                                style={{ fontFamily: 'inherit', fontSize: '0.85rem' }}
                             />
-                            {/* With Apply button and preview row */}
+
+                            {/* Extracted preview pills */}
                             {parsedPreview && parsedPreview.length > 0 && (
-                                <div style={{ marginTop: '0.4rem', padding: '0.4rem 0.75rem', background: 'rgba(59,130,246,0.08)', border: '1px solid rgba(59,130,246,0.25)', borderRadius: 8, fontSize: '0.75rem', color: '#93c5fd', display: 'flex', gap: '0.75rem', flexWrap: 'wrap', alignItems: 'center' }}>
-                                    <span style={{ fontWeight: 700, color: '#60a5fa' }}>🔍 Detected:</span>
-                                    {parsedPreview.map((v, i) => <span key={i} style={{ fontWeight: 600, color: v.startsWith('No') ? '#f87171' : '#93c5fd' }}>{v}</span>)}
-                                </div>
-                            )}
-                            {form.raw_input_text.length > 5 && (
-                                <div style={{ marginTop: '0.5rem', display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
-                                    <button
-                                        type="button"
-                                        onClick={applyVitalsToFields}
-                                        style={{
-                                            padding: '0.35rem 1rem', borderRadius: 8, fontSize: '0.8rem',
-                                            fontWeight: 700, cursor: 'pointer',
-                                            background: 'rgba(99,102,241,0.15)', color: '#818cf8',
-                                            border: '1px solid rgba(99,102,241,0.4)',
-                                        }}
-                                    >
-                                        📥 Apply to Fields
-                                    </button>
-                                    <span style={{ fontSize: '0.72rem', color: '#64748b' }}>Fills HR, BP, SpO₂, Temp, RR, GCS, Pain and Symptoms from your text</span>
+                                <div style={{ marginTop: '0.4rem', padding: '0.45rem 0.85rem', background: 'rgba(59,130,246,0.08)', border: '1px solid rgba(59,130,246,0.25)', borderRadius: 8, fontSize: '0.75rem', color: '#93c5fd', display: 'flex', gap: '0.6rem', flexWrap: 'wrap', alignItems: 'center' }}>
+                                    <span style={{ fontWeight: 700, color: '#60a5fa' }}>✅ Extracted:</span>
+                                    {parsedPreview.map((v, i) => (
+                                        <span key={i} style={{
+                                            fontWeight: 600,
+                                            color: v.startsWith('No') ? '#f87171' : '#93c5fd',
+                                            background: v.startsWith('No') ? 'rgba(239,68,68,0.08)' : 'rgba(59,130,246,0.1)',
+                                            border: `1px solid ${v.startsWith('No') ? 'rgba(239,68,68,0.2)' : 'rgba(59,130,246,0.2)'}`,
+                                            borderRadius: 5, padding: '0.1rem 0.45rem',
+                                        }}>{v}</span>
+                                    ))}
                                 </div>
                             )}
                         </div>
@@ -1217,7 +1256,6 @@ function QueuePage() {
     const [encounters, setEncounters] = useState([])
     const [loading, setLoading] = useState(true)
     const [refreshing, setRefreshing] = useState(false)  // for Refresh button spinner
-    const [clearing, setClearing] = useState(false)       // for Clear All button
     const [showNewPatient, setShowNewPatient] = useState(false)
     const [triageEnc, setTriageEnc] = useState(null)
     const [assignEnc, setAssignEnc] = useState(null)
@@ -1259,25 +1297,7 @@ function QueuePage() {
         finally { setRefreshing(false) }
     }, [])
 
-    // Clear all encounters (soft-delete) — admin gesture
-    const handleClearAll = useCallback(async (e) => {
-        const withPatients = e?.shiftKey
-        const msg = withPatients
-            ? 'This will permanently delete ALL encounters AND simulation patients. Are you sure?'
-            : 'This will soft-delete ALL encounters (patients kept). Are you sure?'
-        if (!window.confirm(msg)) return
-        setClearing(true)
-        try {
-            const result = await AdminAPI.clearEncounters(withPatients ? 'all' : 'encounters')
-            alert(`✅ Cleared ${result.encounters_cleared} encounter(s)${result.patients_cleared > 0 ? ` and ${result.patients_cleared} patient(s)` : ''
-                }.`)
-            await load()
-        } catch (err) {
-            alert('Error clearing: ' + (err.response?.data?.errors?.[0] || err.message))
-        } finally {
-            setClearing(false)
-        }
-    }, [load])
+    // Clear all is admin-only — removed from nurse panel
 
     const loadEscalEvents = useCallback(async () => {
         try {
@@ -1421,14 +1441,27 @@ function QueuePage() {
     const escalatedEncounters = activeQueue.filter(e => e.status === 'escalated')
     const rejectedEncounters = activeQueue.filter(e => e.rejection_count > 0 && !e.assigned_doctor_detail)
 
-    // Apply status filter
-    const filteredQueue = statusFilter === 'all' ? activeQueue : activeQueue.filter(e => e.status === statusFilter)
+    // Compute displayStatus per encounter (orphaned in_progress → 'waiting')
+    const displayStatus = (enc) =>
+        enc.status === 'in_progress' && !enc.assigned_doctor_detail ? 'waiting' : enc.status
+
+    // Apply status filter using displayStatus so orphaned in_progress show under 'waiting'
+    const filteredQueue = statusFilter === 'all'
+        ? [...activeQueue].sort((a, b) => {
+            // Completed/cancelled always sink to bottom
+            const aCompleted = ['completed', 'cancelled'].includes(a.status) ? 1 : 0
+            const bCompleted = ['completed', 'cancelled'].includes(b.status) ? 1 : 0
+            if (aCompleted !== bCompleted) return aCompleted - bCompleted
+            // Otherwise server ordering preserved
+            return 0
+        })
+        : activeQueue.filter(e => displayStatus(e) === statusFilter)
 
     const STATUS_FILTERS = [
         { value: 'all', label: 'All', count: activeQueue.length },
-        { value: 'waiting', label: 'Waiting', count: activeQueue.filter(e => e.status === 'waiting').length },
+        { value: 'waiting', label: 'Waiting', count: activeQueue.filter(e => displayStatus(e) === 'waiting').length },
         { value: 'assigned', label: 'Assigned', count: activeQueue.filter(e => e.status === 'assigned').length },
-        { value: 'in_progress', label: 'In Progress', count: activeQueue.filter(e => e.status === 'in_progress').length },
+        { value: 'in_progress', label: 'In Progress', count: activeQueue.filter(e => displayStatus(e) === 'in_progress').length },
         { value: 'escalated', label: 'Escalated', count: activeQueue.filter(e => e.status === 'escalated').length },
         { value: 'completed', label: 'Completed', count: activeQueue.filter(e => e.status === 'completed').length },
         { value: 'cancelled', label: 'Cancelled', count: activeQueue.filter(e => e.status === 'cancelled').length },
@@ -1548,20 +1581,6 @@ function QueuePage() {
                         {refreshing ? (
                             <><span className="spinner" style={{ width: 13, height: 13, borderWidth: 2 }} /> Refreshing...</>
                         ) : '↻ Refresh'}
-                    </button>
-                    <button
-                        className="btn btn-ghost"
-                        onClick={handleClearAll}
-                        disabled={clearing || encounters.length === 0}
-                        title="Clear all encounters (Shift+Click to also delete patients)"
-                        style={{
-                            color: '#f87171', borderColor: 'rgba(239,68,68,0.35)',
-                            opacity: encounters.length === 0 ? 0.4 : 1,
-                        }}
-                    >
-                        {clearing ? (
-                            <><span className="spinner" style={{ width: 13, height: 13, borderWidth: 2 }} /> Clearing...</>
-                        ) : '🗑 Clear All'}
                     </button>
                     <button className="btn btn-primary" onClick={() => setShowNewPatient(true)}>+ New Patient</button>
                 </div>
@@ -1702,7 +1721,13 @@ function QueuePage() {
                                     <td style={{ color: enc.assigned_doctor_detail ? 'var(--text)' : 'var(--text-muted)' }}>
                                         {enc.assigned_doctor_detail?.full_name || 'Unassigned'}
                                     </td>
-                                    <td><span className="tag">{enc.status.replace('_', ' ')}</span></td>
+                                    <td>
+                                        {/* Bug fix: in_progress with no doctor = show as waiting */}
+                                        {(() => {
+                                            const displayStatus = (enc.status === 'in_progress' && !enc.assigned_doctor_detail) ? 'waiting' : enc.status
+                                            return <span className="tag" style={displayStatus === 'waiting' && enc.status === 'in_progress' ? { color: 'var(--warn)', borderColor: 'var(--warn)' } : {}}>{displayStatus.replace('_', ' ')}</span>
+                                        })()}
+                                    </td>
                                     <td>
                                         {/* ── COMPLETED: Report only ── */}
                                         {enc.status === 'completed' ? (
@@ -1742,7 +1767,20 @@ function QueuePage() {
                                                 </span>
                                             </div>
 
-                                            /* ── IN PROGRESS: no Triage, no Code Blue ── */
+                                            /* ── IN PROGRESS with no doctor = orphaned → treat as waiting ── */
+                                        ) : enc.status === 'in_progress' && !enc.assigned_doctor_detail ? (
+                                            <div style={{ display: 'flex', gap: '0.35rem', flexWrap: 'wrap' }}>
+                                                <button className="btn btn-ghost" style={{ padding: '0.3rem 0.5rem', fontSize: '0.75rem' }}
+                                                    onClick={() => setTriageEnc(enc)}>
+                                                    <Stethoscope size={14} /> Triage
+                                                </button>
+                                                <button className="btn btn-success" style={{ padding: '0.3rem 0.5rem', fontSize: '0.75rem' }}
+                                                    onClick={() => suggestAndAssign(enc)}>
+                                                    <UserPlus size={14} /> Assign
+                                                </button>
+                                            </div>
+
+                                            /* ── IN PROGRESS (with doctor assigned) ── */
                                         ) : enc.status === 'in_progress' ? (
                                             <div style={{ display: 'flex', gap: '0.35rem', flexWrap: 'wrap' }}>
                                                 {needsReassign(enc) && (

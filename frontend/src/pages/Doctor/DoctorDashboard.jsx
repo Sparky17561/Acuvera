@@ -349,7 +349,7 @@ function ReferModal({ encounter, currentUserId, onClose, onDone }) {
 }
 
 // ─── AI Insight Panel ────────────────────────────────────────
-function AiInsightPanel({ encounterId }) {
+function AiInsightPanel({ encounterId, vitals = {} }) {
     const [insight, setInsight] = useState(null)
     const [loading, setLoading] = useState(false)
     const [error, setError] = useState(null)
@@ -367,6 +367,59 @@ function AiInsightPanel({ encounterId }) {
     }
 
     const confColor = (c) => c === 'high' ? '#22c55e' : c === 'medium' ? '#eab308' : '#94a3b8'
+
+    // Vitals-based threshold rules — explain WHY each flag was raised using actual numbers
+    const buildVitalsExplainability = (v, differentials) => {
+        if (!v || Object.keys(v).length === 0) return []
+        const explanations = []
+
+        const hr = v.hr || v.heart_rate
+        const spo2 = v.spo2 || v.oxygen_saturation
+        const sbp = v.bp_systolic || v.systolic_bp
+        const dbp = v.bp_diastolic || v.diastolic_bp
+        const temp = v.temp || v.temperature
+        const gcs = v.gcs
+        const rr = v.rr || v.respiratory_rate
+        const pain = v.pain_score
+
+        if (hr) {
+            if (hr > 140) explanations.push({ vital: 'HR', value: `${hr} bpm`, threshold: '>140 = severe tachycardia', flag: '🔴', reason: `Heart rate of ${hr} bpm is critically high (threshold >140 bpm). Severe tachycardia suggests haemodynamic instability — likely cause is acute blood loss, septic shock, or severe cardiac compromise.` })
+            else if (hr > 100) explanations.push({ vital: 'HR', value: `${hr} bpm`, threshold: '>100 = tachycardia', flag: '🟠', reason: `Heart rate of ${hr} bpm indicates tachycardia (normal: 60–100 bpm). This points toward acute stress, pain, fever, dehydration, or early cardiovascular decompensation.` })
+            else if (hr < 50) explanations.push({ vital: 'HR', value: `${hr} bpm`, threshold: '<50 = bradycardia', flag: '🟡', reason: `Heart rate of ${hr} bpm is bradycardic (normal: 60–100 bpm). Consider heart block, beta-blocker toxicity, or vagal overstimulation.` })
+        }
+
+        if (sbp) {
+            if (sbp < 90) explanations.push({ vital: 'BP Systolic', value: `${sbp} mmHg`, threshold: '<90 = hypotension/shock', flag: '🔴', reason: `Systolic BP of ${sbp} mmHg is below the 90 mmHg shock threshold. This indicates haemodynamic compromise — urgent consideration for septic shock, cardiogenic shock, or haemorrhage.` })
+            else if (sbp > 180) explanations.push({ vital: 'BP Systolic', value: `${sbp} mmHg`, threshold: '>180 = hypertensive crisis', flag: '🔴', reason: `Systolic BP of ${sbp} mmHg exceeds 180 mmHg — hypertensive urgency/emergency. Elevated risk of hypertensive stroke, aortic dissection, or acute pulmonary oedema.` })
+            else if (sbp > 140) explanations.push({ vital: 'BP Systolic', value: `${sbp} mmHg`, threshold: '>140 = hypertension', flag: '🟡', reason: `Systolic BP of ${sbp} mmHg is above the 140 mmHg hypertension threshold. In an acute setting this contributes to cardiac, renal, and neurological stress.` })
+        }
+
+        if (spo2) {
+            if (spo2 < 90) explanations.push({ vital: 'SpO₂', value: `${spo2}%`, threshold: '<90% = severe hypoxemia', flag: '🔴', reason: `SpO₂ of ${spo2}% is critically low (normal: 95–100%). Severe hypoxemia indicates significant respiratory failure — consistent with pulmonary embolism, pneumonia, or acute pulmonary oedema.` })
+            else if (spo2 < 94) explanations.push({ vital: 'SpO₂', value: `${spo2}%`, threshold: '<94% = hypoxemia', flag: '🟠', reason: `SpO₂ of ${spo2}% is below the 94% clinical threshold. Moderate hypoxemia raises concern for pulmonary pathology — oxygen supplementation is likely needed.` })
+        }
+
+        if (temp) {
+            if (temp > 38.5) explanations.push({ vital: 'Temp', value: `${temp}°C`, threshold: '>38.5°C = fever', flag: '🟠', reason: `Temperature of ${temp}°C indicates significant fever (threshold >38.5°C). This points to an active infectious or inflammatory process — sepsis screening warranted if other criteria present.` })
+            else if (temp < 36.0) explanations.push({ vital: 'Temp', value: `${temp}°C`, threshold: '<36°C = hypothermia', flag: '🟡', reason: `Temperature of ${temp}°C is below normal (36–37.5°C). Hypothermia in an acute presentation may indicate sepsis, endocrine failure, or environmental exposure.` })
+        }
+
+        if (gcs) {
+            if (gcs <= 8) explanations.push({ vital: 'GCS', value: `${gcs}/15`, threshold: '≤8 = severe neurological compromise', flag: '🔴', reason: `GCS of ${gcs}/15 is critically low (threshold ≤8 = comatose). This indicates severe neurological depression — airway protection is an immediate priority. Causes include stroke, TBI, metabolic encephalopathy, or toxidrome.` })
+            else if (gcs < 13) explanations.push({ vital: 'GCS', value: `${gcs}/15`, threshold: '<13 = moderate impairment', flag: '🟠', reason: `GCS of ${gcs}/15 indicates moderate neurological impairment (normal: 15). Consider altered consciousness — causes include intracranial event, hypoglycaemia, hypoxia, or medication effect.` })
+        }
+
+        if (rr) {
+            if (rr > 25) explanations.push({ vital: 'RR', value: `${rr} /min`, threshold: '>25 = tachypnoea', flag: '🟠', reason: `Respiratory rate of ${rr}/min is elevated (normal: 12–20/min). Significant tachypnoea indicates respiratory distress — consider pneumonia, PE, metabolic acidosis, or cardiac failure.` })
+            else if (rr < 10) explanations.push({ vital: 'RR', value: `${rr} /min`, threshold: '<10 = bradypnoea', flag: '🟡', reason: `Respiratory rate of ${rr}/min is below normal. Bradypnoea suggests CNS depression, opiate toxicity, or severe metabolic derangement.` })
+        }
+
+        if (pain && pain >= 7) {
+            explanations.push({ vital: 'Pain Score', value: `${pain}/10`, threshold: '≥7 = severe pain', flag: '🟠', reason: `Pain score of ${pain}/10 indicates severe pain (threshold ≥7). Severe pain in the acute setting warrants urgent analgesia and investigation — consistent with ACS, aortic dissection, or obstructive pathology.` })
+        }
+
+        return explanations
+    }
 
     return (
         <div style={{
@@ -403,72 +456,175 @@ function AiInsightPanel({ encounterId }) {
                 <div style={{ padding: '0.6rem 1rem', fontSize: '0.78rem', color: '#f87171' }}>⚠ {error}</div>
             )}
 
-            {insight && !error && (
-                <div style={{ padding: '0.9rem 1rem', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-                    {/* Differentials */}
-                    <div>
-                        <div style={{ fontSize: '0.68rem', fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: '0.6rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                            <span style={{ width: 3, height: 12, background: '#818cf8', borderRadius: 2, display: 'inline-block' }} />
-                            Differential Diagnoses
-                        </div>
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>
-                            {(insight.differentials || []).map((d, i) => {
-                                const cc = confColor(d.confidence)
-                                return (
-                                    <div key={i} style={{
-                                        borderRadius: 8, border: `1px solid ${cc}30`,
-                                        background: `${cc}08`, padding: '0.6rem 0.8rem',
-                                    }}>
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: d.reason ? '0.3rem' : 0 }}>
-                                            <span style={{ width: 8, height: 8, borderRadius: '50%', flexShrink: 0, background: cc }} />
-                                            <span style={{ color: '#e2e8f0', fontWeight: 700, fontSize: '0.85rem' }}>{d.condition}</span>
-                                            <span style={{ fontSize: '0.62rem', color: cc, fontWeight: 800, marginLeft: 'auto', textTransform: 'uppercase', letterSpacing: '0.05em', border: `1px solid ${cc}50`, borderRadius: 4, padding: '0.1rem 0.35rem' }}>
-                                                {d.confidence}
-                                            </span>
-                                        </div>
-                                        {d.reason && (
-                                            <div style={{ fontSize: '0.75rem', color: '#94a3b8', lineHeight: 1.5, paddingLeft: '1.1rem' }}>
-                                                {d.reason}
+            {insight && !error && (() => {
+                // Build explanatory paragraph from differentials + investigations
+                const topDiff = (insight.differentials || []).filter(d => d.confidence === 'high')[0] || insight.differentials?.[0]
+                const secondDiff = (insight.differentials || []).filter(d => d !== topDiff)[0]
+                const invNames = (insight.investigations || []).map(i => typeof i === 'string' ? i : i?.name).filter(Boolean).slice(0, 4)
+                const highConf = (insight.differentials || []).filter(d => d.confidence === 'high').length
+
+                // Vitals-based detailed explainability — the core new feature
+                const vitalsExplanations = buildVitalsExplainability(vitals || {}, insight.differentials || [])
+
+                const reasoning = insight.reasoning || insight.explanation || (
+                    topDiff
+                        ? `Based on the presenting clinical picture, ${topDiff.condition} is the most likely diagnosis${topDiff.reason ? ` — ${topDiff.reason.toLowerCase()}` : ''}. ` +
+                        (secondDiff ? `${secondDiff.condition} should also be considered as a differential, particularly if initial tests are unrevealing. ` : '') +
+                        (invNames.length ? `Priority investigations include ${invNames.join(', ')} to narrow the diagnosis and guide management. ` : '') +
+                        (highConf > 1 ? `There are ${highConf} high-confidence differentials, indicating significant diagnostic uncertainty — clinical correlation is essential.` : 'Clinical correlation with bedside examination remains paramount.')
+                        : null
+                )
+                const riskSignals = insight.risk_signals || [
+                    ...(insight.differentials || []).filter(d => d.confidence === 'high').map(d => `Elevated suspicion for ${d.condition}`),
+                    ...(insight.investigations || []).slice(0, 2).map(i => `Pending: ${typeof i === 'string' ? i : i?.name}`),
+                ]
+                const outcomes = insight.possible_outcomes || insight.outcomes || null
+
+                return (
+                    <div style={{ padding: '0.9rem 1rem', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                        {/* Differentials */}
+                        <div>
+                            <div style={{ fontSize: '0.68rem', fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: '0.6rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                <span style={{ width: 3, height: 12, background: '#818cf8', borderRadius: 2, display: 'inline-block' }} />
+                                Differential Diagnoses
+                            </div>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>
+                                {(insight.differentials || []).map((d, i) => {
+                                    const cc = confColor(d.confidence)
+                                    return (
+                                        <div key={i} style={{
+                                            borderRadius: 8, border: `1px solid ${cc}30`,
+                                            background: `${cc}08`, padding: '0.6rem 0.8rem',
+                                        }}>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: d.reason ? '0.3rem' : 0 }}>
+                                                <span style={{ width: 8, height: 8, borderRadius: '50%', flexShrink: 0, background: cc }} />
+                                                <span style={{ color: '#e2e8f0', fontWeight: 700, fontSize: '0.85rem' }}>{d.condition}</span>
+                                                <span style={{ fontSize: '0.62rem', color: cc, fontWeight: 800, marginLeft: 'auto', textTransform: 'uppercase', letterSpacing: '0.05em', border: `1px solid ${cc}50`, borderRadius: 4, padding: '0.1rem 0.35rem' }}>
+                                                    {d.confidence}
+                                                </span>
                                             </div>
-                                        )}
-                                    </div>
-                                )
-                            })}
-                        </div>
-                    </div>
-                    {/* Investigations */}
-                    <div>
-                        <div style={{ fontSize: '0.68rem', fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: '0.6rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                            <span style={{ width: 3, height: 12, background: '#6366f1', borderRadius: 2, display: 'inline-block' }} />
-                            Suggested Investigations
-                        </div>
-                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem' }}>
-                            {(insight.investigations || []).map((inv, i) => {
-                                const name = typeof inv === 'string' ? inv : inv?.name
-                                const reason = typeof inv === 'object' ? inv?.reason : null
-                                return (
-                                    <div key={i} style={{
-                                        fontSize: '0.79rem', padding: '0.5rem 0.7rem',
-                                        background: 'rgba(99,102,241,0.07)', borderRadius: 8,
-                                        border: '1px solid rgba(99,102,241,0.15)',
-                                        display: 'flex', flexDirection: 'column', gap: '0.2rem'
-                                    }}>
-                                        <div style={{ display: 'flex', alignItems: 'flex-start', gap: '0.4rem' }}>
-                                            <span style={{ color: '#6366f1', fontWeight: 800, flexShrink: 0, marginTop: 1 }}>{i + 1}.</span>
-                                            <span style={{ color: '#e2e8f0', fontWeight: 600, lineHeight: 1.4 }}>{name}</span>
+                                            {d.reason && (
+                                                <div style={{ fontSize: '0.75rem', color: '#94a3b8', lineHeight: 1.5, paddingLeft: '1.1rem' }}>
+                                                    {d.reason}
+                                                </div>
+                                            )}
                                         </div>
-                                        {reason && (
-                                            <div style={{ fontSize: '0.68rem', color: '#64748b', lineHeight: 1.4, paddingLeft: '1.1rem' }}>
-                                                {reason}
-                                            </div>
-                                        )}
-                                    </div>
-                                )
-                            })}
+                                    )
+                                })}
+                            </div>
                         </div>
+                        {/* Investigations */}
+                        <div>
+                            <div style={{ fontSize: '0.68rem', fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: '0.6rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                <span style={{ width: 3, height: 12, background: '#6366f1', borderRadius: 2, display: 'inline-block' }} />
+                                Suggested Investigations
+                            </div>
+                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem' }}>
+                                {(insight.investigations || []).map((inv, i) => {
+                                    const name = typeof inv === 'string' ? inv : inv?.name
+                                    const reason = typeof inv === 'object' ? inv?.reason : null
+                                    return (
+                                        <div key={i} style={{
+                                            fontSize: '0.79rem', padding: '0.5rem 0.7rem',
+                                            background: 'rgba(99,102,241,0.07)', borderRadius: 8,
+                                            border: '1px solid rgba(99,102,241,0.15)',
+                                            display: 'flex', flexDirection: 'column', gap: '0.2rem'
+                                        }}>
+                                            <div style={{ display: 'flex', alignItems: 'flex-start', gap: '0.4rem' }}>
+                                                <span style={{ color: '#6366f1', fontWeight: 800, flexShrink: 0, marginTop: 1 }}>{i + 1}.</span>
+                                                <span style={{ color: '#e2e8f0', fontWeight: 600, lineHeight: 1.4 }}>{name}</span>
+                                            </div>
+                                            {reason && (
+                                                <div style={{ fontSize: '0.68rem', color: '#64748b', lineHeight: 1.4, paddingLeft: '1.1rem' }}>
+                                                    {reason}
+                                                </div>
+                                            )}
+                                        </div>
+                                    )
+                                })}
+                            </div>
+                        </div>
+
+                        {/* ─── Vitals-Based Explainability ─── */}
+                        {vitalsExplanations.length > 0 && (
+                            <div style={{
+                                borderRadius: 10, border: '1px solid rgba(139,92,246,0.25)',
+                                background: 'rgba(139,92,246,0.05)', padding: '0.85rem 1rem',
+                            }}>
+                                <div style={{ fontSize: '0.68rem', fontWeight: 700, color: '#a78bfa', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '0.65rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                    <span style={{ width: 3, height: 12, background: '#8b5cf6', borderRadius: 2, display: 'inline-block' }} />
+                                    Vital-Sign Threshold Analysis
+                                    <span style={{ fontWeight: 500, textTransform: 'none', color: '#7c3aed', fontSize: '0.65rem', marginLeft: 'auto' }}>why these tests were suggested</span>
+                                </div>
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.55rem' }}>
+                                    {vitalsExplanations.map((e, i) => (
+                                        <div key={i} style={{
+                                            background: 'rgba(139,92,246,0.06)', borderRadius: 8,
+                                            border: '1px solid rgba(139,92,246,0.15)', padding: '0.55rem 0.8rem',
+                                        }}>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.3rem' }}>
+                                                <span style={{ fontSize: '0.85rem' }}>{e.flag}</span>
+                                                <span style={{ fontWeight: 800, color: '#c4b5fd', fontSize: '0.8rem' }}>{e.vital}</span>
+                                                <span style={{
+                                                    fontFamily: 'monospace', fontWeight: 700, fontSize: '0.82rem',
+                                                    background: 'rgba(139,92,246,0.15)', padding: '0.1rem 0.45rem',
+                                                    borderRadius: 5, color: '#e9d5ff', border: '1px solid rgba(139,92,246,0.3)'
+                                                }}>{e.value}</span>
+                                                <span style={{ fontSize: '0.65rem', color: '#7c3aed', fontWeight: 600, marginLeft: 'auto' }}>{e.threshold}</span>
+                                            </div>
+                                            <div style={{ fontSize: '0.77rem', color: '#c4b5fd', lineHeight: 1.55, paddingLeft: '1.6rem' }}>
+                                                {e.reason}
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+
+                        {/* ─── Risk Signals ─── */}
+                        {riskSignals.length > 0 && (
+                            <div style={{
+                                borderRadius: 10, border: '1px solid rgba(245,158,11,0.2)',
+                                background: 'rgba(245,158,11,0.05)', padding: '0.75rem 1rem',
+                            }}>
+                                <div style={{ fontSize: '0.68rem', fontWeight: 700, color: '#f59e0b', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '0.5rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                    <span style={{ width: 3, height: 12, background: '#f59e0b', borderRadius: 2, display: 'inline-block' }} />
+                                    Key Clinical Flags
+                                </div>
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem' }}>
+                                    {riskSignals.slice(0, 4).map((sig, i) => (
+                                        <div key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: '0.5rem', fontSize: '0.78rem', color: '#fcd34d' }}>
+                                            <span style={{ color: '#f59e0b', flexShrink: 0, marginTop: 1 }}>▸</span>
+                                            <span style={{ lineHeight: 1.4 }}>{sig}</span>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+
+                        {/* ─── Possible Outcomes ─── */}
+                        {outcomes && Array.isArray(outcomes) && outcomes.length > 0 && (
+                            <div style={{
+                                borderRadius: 10, border: '1px solid rgba(239,68,68,0.2)',
+                                background: 'rgba(239,68,68,0.04)', padding: '0.75rem 1rem',
+                            }}>
+                                <div style={{ fontSize: '0.68rem', fontWeight: 700, color: '#f87171', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '0.5rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                    <span style={{ width: 3, height: 12, background: '#ef4444', borderRadius: 2, display: 'inline-block' }} />
+                                    Possible Outcomes if Untreated
+                                </div>
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem' }}>
+                                    {outcomes.map((o, i) => (
+                                        <div key={i} style={{ fontSize: '0.78rem', color: '#fca5a5', display: 'flex', gap: '0.5rem', alignItems: 'flex-start' }}>
+                                            <span style={{ color: '#ef4444', flexShrink: 0 }}>⚠</span>
+                                            <span style={{ lineHeight: 1.4 }}>{typeof o === 'string' ? o : o?.outcome}</span>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
                     </div>
-                </div>
-            )}
+                )
+            })()}
 
             {insight?.disclaimer && (
                 <div style={{ padding: '0.4rem 1rem', fontSize: '0.65rem', color: '#475569', borderTop: '1px solid rgba(99,102,241,0.15)' }}>
@@ -478,6 +634,7 @@ function AiInsightPanel({ encounterId }) {
         </div>
     )
 }
+
 
 // ─── Assessment Modal ─────────────────────────────────────────
 function AssessmentModal({ encounter, onClose, onDone }) {
@@ -589,7 +746,7 @@ function AssessmentModal({ encounter, onClose, onDone }) {
                 ) : (
                     <>
                         {/* AI Clinical Insight Panel */}
-                        <AiInsightPanel encounterId={encounter.id} />
+                        <AiInsightPanel encounterId={encounter.id} vitals={encounter.triage_data?.vitals_json || {}} />
 
                         {/* Notes */}
                         <div className="form-group">
