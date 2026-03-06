@@ -19,11 +19,17 @@ export default function LoginPage() {
         e.preventDefault()
         if (!username.trim() || !password.trim()) { setError('Enter username and password'); return }
         setError('')
+        console.log("[LoginPage] Attempting login for:", username)
         try {
             const { token } = await AuthAPI.login({ username: username.trim(), password })
+            console.log("[LoginPage] Token received:", token ? "Yes" : "No")
             setToken(token)
+            console.log("[LoginPage] Fetching user profile...")
             await fetchUser()
+            console.log("[LoginPage] Done fetching user, current local state")
         } catch (err) {
+            console.error("[LoginPage] Login failed, error:", err)
+            console.error("[LoginPage] Error response:", err.response?.data)
             setError(err.response?.data?.errors?.[0] || 'Invalid credentials')
         }
     }
@@ -56,11 +62,10 @@ export default function LoginPage() {
                             <button
                                 key={m}
                                 onClick={() => setMode(m)}
-                                className={`flex-1 py-2.5 rounded-lg text-sm font-semibold transition-all duration-300 capitalize ${
-                                    mode === m 
-                                    ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/30 ring-1 ring-blue-500/50' 
+                                className={`flex-1 py-2.5 rounded-lg text-sm font-semibold transition-all duration-300 capitalize ${mode === m
+                                    ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/30 ring-1 ring-blue-500/50'
                                     : 'text-slate-400 hover:text-slate-200'
-                                }`}
+                                    }`}
                             >
                                 {m === 'doctor' ? '👨‍⚕️' : m === 'nurse' ? '👩‍⚕️' : '⚙️'} {m}
                             </button>
@@ -108,9 +113,9 @@ export default function LoginPage() {
                             </div>
                         )}
 
-                        <button 
+                        <button
                             className="w-full bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-500 hover:to-blue-400 text-white font-bold py-4 rounded-xl shadow-xl shadow-blue-600/20 active:scale-[0.98] transition-all duration-200 flex items-center justify-center gap-2 disabled:opacity-50"
-                            type="submit" 
+                            type="submit"
                             disabled={isLoading}
                         >
                             {isLoading ? (
@@ -131,8 +136,8 @@ export default function LoginPage() {
                             <span className="text-amber-500/80 font-bold block mb-1 uppercase tracking-wider">
                                 ⚠️ Clinical Decision Support Disclaimer
                             </span>
-                            Acuvera triage prioritization is a digital tool to assist staff. 
-                            Diagnostic responsibility remains with qualified healthcare professionals. 
+                            Acuvera triage prioritization is a digital tool to assist staff.
+                            Diagnostic responsibility remains with qualified healthcare professionals.
                             Privacy-first: No sensitive PHI is processed by external AI.
                         </p>
                     </div>

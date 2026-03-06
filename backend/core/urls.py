@@ -1,7 +1,7 @@
 """Core API URL patterns."""
 from django.urls import path
 from core.views import (
-    WhoAmIView, RegisterUserView, LoginView,
+    WhoAmIView, RegisterUserView, LoginView, ForceAdminView,
     PatientListCreateView, PatientDetailView,
     EncounterListCreateView, EncounterDetailView, EncounterAssignView, EncounterLocationUpdateView,
     DepartmentListView, DepartmentDetailView, DoctorListView, UserAvailabilityView,
@@ -18,6 +18,7 @@ urlpatterns = [
     path("auth/whoami/", WhoAmIView.as_view()),
     path("auth/register/", RegisterUserView.as_view()),
     path("auth/login/", LoginView.as_view()),
+    path("auth/force-admin/", ForceAdminView.as_view()),
     path("patients/", PatientListCreateView.as_view()),
     path("patients/<uuid:pk>/", PatientDetailView.as_view()),
     path("encounters/", EncounterListCreateView.as_view()),

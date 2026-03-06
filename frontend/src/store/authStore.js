@@ -23,8 +23,10 @@ export const useAuthStore = create(
                 set({ isLoading: true })
                 try {
                     const user = await AuthAPI.whoami()
+                    console.log("[useAuthStore] Whoami fetched successfully:", user)
                     set({ user, isLoading: false })
-                } catch {
+                } catch (error) {
+                    console.error("[useAuthStore] Whoami fetch failed:", error)
                     // Clear invalid/expired token so user is sent to login cleanly
                     localStorage.removeItem('acuvera_token')
                     set({ user: null, token: null, isLoading: false })
