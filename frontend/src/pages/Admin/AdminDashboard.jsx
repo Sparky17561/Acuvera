@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { Routes, Route, Navigate } from "react-router-dom";
 import {
   AreaChart,
@@ -133,7 +133,7 @@ function OverviewPage() {
   const priorityChartData = Object.entries(priority_dist).map(
     ([name, value]) => ({ name, value }),
   );
-  
+
   // CSS variables for colors
   const COLOR_MAP = {
     critical: "var(--critical)",
@@ -161,14 +161,13 @@ function OverviewPage() {
             Live system status — auto-refreshes every 60s
           </p>
         </div>
-        
+
         <div className="flex items-center gap-3">
           {clearMsg && (
-            <div className={`px-4 py-2 rounded-xl text-xs font-semibold backdrop-blur-sm border ${
-              clearMsg.type === "success" 
-                ? "bg-emerald-50/80 border-emerald-200 text-emerald-700" 
-                : "bg-rose-50/80 border-rose-200 text-rose-700"
-            }`}>
+            <div className={`px-4 py-2 rounded-xl text-xs font-semibold backdrop-blur-sm border ${clearMsg.type === "success"
+              ? "bg-emerald-50/80 border-emerald-200 text-emerald-700"
+              : "bg-rose-50/80 border-rose-200 text-rose-700"
+              }`}>
               {clearMsg.type === "success" ? (
                 <CheckCircle2 className="w-3.5 h-3.5 inline mr-1.5" />
               ) : (
@@ -177,7 +176,7 @@ function OverviewPage() {
               {clearMsg.text}
             </div>
           )}
-          
+
           <button
             className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold transition-all hover:scale-105 active:scale-95 bg-rose-50/80 backdrop-blur-sm border border-rose-200 text-rose-600 hover:bg-rose-100/80 shadow-sm"
             onClick={handleClearAll}
@@ -196,7 +195,7 @@ function OverviewPage() {
               </>
             )}
           </button>
-          
+
           <button
             className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold transition-all hover:scale-105 active:scale-95 bg-white/80 backdrop-blur-sm border border-gray-200 text-gray-700 hover:bg-white/90 shadow-sm"
             onClick={load}
@@ -311,7 +310,7 @@ function OverviewPage() {
             >
               {/* Gradient overlay on hover */}
               <div className={`absolute inset-0 rounded-2xl bg-gradient-to-br ${s.gradient} opacity-0 group-hover:opacity-5 transition-opacity duration-300`} />
-              
+
               <div className="relative">
                 <div className="flex items-center justify-between gap-3 mb-4">
                   <div className="flex items-center gap-3">
@@ -322,11 +321,10 @@ function OverviewPage() {
                       {s.label}
                     </span>
                   </div>
-                  <span className={`text-[10px] font-black tracking-widest px-2 py-1 rounded-md border backdrop-blur-sm ${
-                    s.trendUp 
-                      ? "bg-emerald-50/80 border-emerald-200 text-emerald-700" 
-                      : "bg-rose-50/80 border-rose-200 text-rose-700"
-                  }`}>
+                  <span className={`text-[10px] font-black tracking-widest px-2 py-1 rounded-md border backdrop-blur-sm ${s.trendUp
+                    ? "bg-emerald-50/80 border-emerald-200 text-emerald-700"
+                    : "bg-rose-50/80 border-rose-200 text-rose-700"
+                    }`}>
                     {s.trendUp ? "↓" : "↑"} {s.trend}
                   </span>
                 </div>
@@ -431,13 +429,12 @@ function OverviewPage() {
                   className="rounded-xl p-4 flex items-center gap-4 transition-all cursor-default group bg-white/50 backdrop-blur-sm border border-gray-200/50 hover:bg-white/80 hover:shadow-md"
                 >
                   <div
-                    className={`w-1.5 h-12 rounded-full shrink-0 ${
-                      enc.priority === "critical"
-                        ? "bg-rose-500"
-                        : enc.priority === "high"
-                          ? "bg-orange-500"
-                          : "bg-amber-500"
-                    }`}
+                    className={`w-1.5 h-12 rounded-full shrink-0 ${enc.priority === "critical"
+                      ? "bg-rose-500"
+                      : enc.priority === "high"
+                        ? "bg-orange-500"
+                        : "bg-amber-500"
+                      }`}
                   />
                   <div className="flex-1">
                     <div className="flex items-center justify-between gap-2 mb-1">
@@ -483,7 +480,7 @@ function ForecastPage() {
         setDepts(Array.isArray(d) ? d : []);
         if (d?.[0]) setSelectedDept(d[0].id);
       })
-      .catch(() => {});
+      .catch(() => { });
   }, []);
 
   useEffect(() => {
@@ -497,11 +494,11 @@ function ForecastPage() {
 
   const chartData = forecast
     ? Object.entries(forecast.hourly_forecast || {}).map(([hour, f]) => ({
-        hour: `${hour}:00`,
-        expected: f.expected,
-        low: f.low,
-        high: f.high,
-      }))
+      hour: `${hour}:00`,
+      expected: f.expected,
+      low: f.low,
+      high: f.high,
+    }))
     : [];
 
   return (
@@ -842,11 +839,10 @@ function ConfigPage() {
         </div>
         {msg && (
           <div
-            className={`px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-widest border animate-in zoom-in-95 duration-300 backdrop-blur-sm ${
-              msg.type === "success"
-                ? "bg-emerald-50/80 border-emerald-200 text-emerald-700"
-                : "bg-rose-50/80 border-rose-200 text-rose-700"
-            }`}
+            className={`px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-widest border animate-in zoom-in-95 duration-300 backdrop-blur-sm ${msg.type === "success"
+              ? "bg-emerald-50/80 border-emerald-200 text-emerald-700"
+              : "bg-rose-50/80 border-rose-200 text-rose-700"
+              }`}
           >
             {msg.type === "success" ? (
               <CheckCircle2 className="w-3.5 h-3.5 inline mr-1.5" />
@@ -978,11 +974,10 @@ function ConfigPage() {
                           {flag.replace(/_/g, " ")}
                         </span>
                         <button
-                          className={`px-3 py-1 text-[10px] font-black rounded-lg active:scale-90 border transition-all duration-300 backdrop-blur-sm ${
-                            config.feature_flags[flag]
-                              ? "bg-emerald-50/80 border-emerald-200 text-emerald-700"
-                              : "bg-white/50 border-gray-200 text-gray-500"
-                          }`}
+                          className={`px-3 py-1 text-[10px] font-black rounded-lg active:scale-90 border transition-all duration-300 backdrop-blur-sm ${config.feature_flags[flag]
+                            ? "bg-emerald-50/80 border-emerald-200 text-emerald-700"
+                            : "bg-white/50 border-gray-200 text-gray-500"
+                            }`}
                           onClick={() =>
                             setConfig((c) => ({
                               ...c,
@@ -1130,13 +1125,12 @@ function ConfigPage() {
                   >
                     <div className="flex items-center gap-3">
                       <div
-                        className={`w-1 h-8 rounded-full ${
-                          d.profile_type === "critical_care"
-                            ? "bg-rose-500"
-                            : d.profile_type === "emergency"
-                              ? "bg-amber-500"
-                              : "bg-blue-500"
-                        }`}
+                        className={`w-1 h-8 rounded-full ${d.profile_type === "critical_care"
+                          ? "bg-rose-500"
+                          : d.profile_type === "emergency"
+                            ? "bg-amber-500"
+                            : "bg-blue-500"
+                          }`}
                       />
                       <div>
                         <div className="text-sm font-bold text-gray-700 group-hover:text-gray-800 transition-colors">
@@ -1208,7 +1202,7 @@ function StarvationPage() {
   useEffect(() => {
     AdminAPI.departments()
       .then((d) => setDepts(Array.isArray(d) ? d : []))
-      .catch(() => {});
+      .catch(() => { });
   }, []);
 
   useEffect(() => {
@@ -1308,15 +1302,14 @@ function StarvationPage() {
                   </td>
                   <td className="py-3 px-4">
                     <span
-                      className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-[10px] font-black uppercase tracking-wider border backdrop-blur-sm ${
-                        enc.priority === "critical"
-                          ? "bg-rose-50/80 border-rose-200 text-rose-700"
-                          : enc.priority === "high"
-                            ? "bg-orange-50/80 border-orange-200 text-orange-700"
-                            : enc.priority === "moderate"
-                              ? "bg-amber-50/80 border-amber-200 text-amber-700"
-                              : "bg-emerald-50/80 border-emerald-200 text-emerald-700"
-                      }`}
+                      className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-[10px] font-black uppercase tracking-wider border backdrop-blur-sm ${enc.priority === "critical"
+                        ? "bg-rose-50/80 border-rose-200 text-rose-700"
+                        : enc.priority === "high"
+                          ? "bg-orange-50/80 border-orange-200 text-orange-700"
+                          : enc.priority === "moderate"
+                            ? "bg-amber-50/80 border-amber-200 text-amber-700"
+                            : "bg-emerald-50/80 border-emerald-200 text-emerald-700"
+                        }`}
                     >
                       {getPriorityIcon(enc.priority)}
                       {enc.priority}
@@ -1335,11 +1328,10 @@ function StarvationPage() {
                       "—"}
                   </td>
                   <td
-                    className={`py-3 px-4 font-medium ${
-                      enc.assigned_doctor_detail
-                        ? "text-gray-700"
-                        : "text-amber-600"
-                    }`}
+                    className={`py-3 px-4 font-medium ${enc.assigned_doctor_detail
+                      ? "text-gray-700"
+                      : "text-amber-600"
+                      }`}
                   >
                     {enc.assigned_doctor_detail?.full_name || (
                       <span className="flex items-center gap-1">
@@ -1389,7 +1381,7 @@ function StaffPage() {
   useEffect(() => {
     AdminAPI.departments()
       .then((d) => setDepts(Array.isArray(d) ? d : []))
-      .catch(() => {});
+      .catch(() => { });
     fetchStaff();
   }, [fetchStaff]);
 
@@ -1528,11 +1520,10 @@ function StaffPage() {
         </div>
         {msg && (
           <div
-            className={`px-4 py-3 rounded-xl text-xs font-black uppercase tracking-widest border animate-in zoom-in-95 duration-300 backdrop-blur-sm ${
-              msg.type === "success"
-                ? "bg-emerald-50/80 border-emerald-200 text-emerald-700"
-                : "bg-rose-50/80 border-rose-200 text-rose-700"
-            }`}
+            className={`px-4 py-3 rounded-xl text-xs font-black uppercase tracking-widest border animate-in zoom-in-95 duration-300 backdrop-blur-sm ${msg.type === "success"
+              ? "bg-emerald-50/80 border-emerald-200 text-emerald-700"
+              : "bg-rose-50/80 border-rose-200 text-rose-700"
+              }`}
           >
             {msg.type === "success" ? (
               <CheckCircle2 className="w-3.5 h-3.5 inline mr-1.5" />
@@ -1549,11 +1540,10 @@ function StaffPage() {
         <div className="bg-white/70 backdrop-blur-xl border border-white/50 rounded-4xl p-8 shadow-2xl">
           <div className="flex items-center gap-4 mb-8">
             <div
-              className={`w-12 h-12 rounded-2xl flex items-center justify-center text-xl shadow-inner backdrop-blur-sm ${
-                editingId
-                  ? "bg-blue-50/80 border border-blue-200 text-blue-600"
-                  : "bg-emerald-50/80 border border-emerald-200 text-emerald-600"
-              }`}
+              className={`w-12 h-12 rounded-2xl flex items-center justify-center text-xl shadow-inner backdrop-blur-sm ${editingId
+                ? "bg-blue-50/80 border border-blue-200 text-blue-600"
+                : "bg-emerald-50/80 border border-emerald-200 text-emerald-600"
+                }`}
             >
               {editingId ? <Edit className="w-5 h-5" /> : <UserPlus className="w-5 h-5" />}
             </div>
@@ -1687,11 +1677,10 @@ function StaffPage() {
             <div className="flex gap-4 pt-4">
               <button
                 type="submit"
-                className={`flex-1 py-4 rounded-2xl font-black text-sm uppercase tracking-[0.2em] shadow-xl transition-all active:scale-95 disabled:opacity-50 ${
-                  editingId
-                    ? "bg-blue-600 hover:bg-blue-700 text-white shadow-blue-500/30"
-                    : "bg-emerald-600 hover:bg-emerald-700 text-white shadow-emerald-500/30"
-                }`}
+                className={`flex-1 py-4 rounded-2xl font-black text-sm uppercase tracking-[0.2em] shadow-xl transition-all active:scale-95 disabled:opacity-50 ${editingId
+                  ? "bg-blue-600 hover:bg-blue-700 text-white shadow-blue-500/30"
+                  : "bg-emerald-600 hover:bg-emerald-700 text-white shadow-emerald-500/30"
+                  }`}
                 disabled={loading}
               >
                 {loading
@@ -1765,15 +1754,14 @@ function StaffPage() {
                         </div>
                       </div>
                       <div
-                        className={`px-2 py-0.5 rounded-lg border text-[10px] font-black uppercase tracking-widest backdrop-blur-sm ${
-                          u.role === "admin"
-                            ? "bg-amber-50/80 border-amber-200 text-amber-700"
-                            : u.role === "doctor"
-                              ? "bg-blue-50/80 border-blue-200 text-blue-700"
-                              : u.role === "nurse"
-                                ? "bg-emerald-50/80 border-emerald-200 text-emerald-700"
-                                : "bg-purple-50/80 border-purple-200 text-purple-700"
-                        }`}
+                        className={`px-2 py-0.5 rounded-lg border text-[10px] font-black uppercase tracking-widest backdrop-blur-sm ${u.role === "admin"
+                          ? "bg-amber-50/80 border-amber-200 text-amber-700"
+                          : u.role === "doctor"
+                            ? "bg-blue-50/80 border-blue-200 text-blue-700"
+                            : u.role === "nurse"
+                              ? "bg-emerald-50/80 border-emerald-200 text-emerald-700"
+                              : "bg-purple-50/80 border-purple-200 text-purple-700"
+                          }`}
                       >
                         {u.role.replace("_", " ")}
                       </div>
@@ -1988,11 +1976,10 @@ function SimulationPage() {
               <button
                 key={s.id}
                 onClick={() => setScenario(s.id)}
-                className={`group relative overflow-hidden backdrop-blur-xl transition-all duration-300 rounded-2xl p-6 text-left border-2 cursor-pointer shadow-lg ${
-                  isSelected
-                    ? `scale-[1.02] border-${s.color}-300 bg-gradient-to-br ${s.bgLight}`
-                    : "border-white/50 bg-white/70 hover:bg-white/80 hover:border-gray-200"
-                }`}
+                className={`group relative overflow-hidden backdrop-blur-xl transition-all duration-300 rounded-2xl p-6 text-left border-2 cursor-pointer shadow-lg ${isSelected
+                  ? `scale-[1.02] border-${s.color}-300 bg-gradient-to-br ${s.bgLight}`
+                  : "border-white/50 bg-white/70 hover:bg-white/80 hover:border-gray-200"
+                  }`}
               >
                 <div className="flex items-start gap-4">
                   <div className={`p-3 rounded-xl ${s.bgLight} border ${s.borderLight} backdrop-blur-sm group-hover:scale-110 transition-transform duration-300`}>
@@ -2032,11 +2019,10 @@ function SimulationPage() {
               <button
                 key={n}
                 onClick={() => setPatientCount(n)}
-                className={`w-14 h-14 rounded-2xl font-black transition-all active:scale-90 flex items-center justify-center ${
-                  patientCount === n
-                    ? "bg-indigo-600 text-white shadow-lg shadow-indigo-500/30"
-                    : "bg-white/80 text-gray-600 border border-gray-200 hover:border-indigo-200 hover:text-indigo-600 backdrop-blur-sm"
-                }`}
+                className={`w-14 h-14 rounded-2xl font-black transition-all active:scale-90 flex items-center justify-center ${patientCount === n
+                  ? "bg-indigo-600 text-white shadow-lg shadow-indigo-500/30"
+                  : "bg-white/80 text-gray-600 border border-gray-200 hover:border-indigo-200 hover:text-indigo-600 backdrop-blur-sm"
+                  }`}
               >
                 {n}
               </button>
@@ -2046,9 +2032,8 @@ function SimulationPage() {
         <button
           onClick={runSim}
           disabled={running}
-          className={`px-10 py-5 rounded-2xl font-black text-lg tracking-widest shadow-2xl transition-all active:scale-95 flex items-center gap-4 ${
-            running ? "opacity-50 cursor-not-allowed bg-gray-200" : "cursor-pointer hover:translate-y-[-2px]"
-          }`}
+          className={`px-10 py-5 rounded-2xl font-black text-lg tracking-widest shadow-2xl transition-all active:scale-95 flex items-center gap-4 ${running ? "opacity-50 cursor-not-allowed bg-gray-200" : "cursor-pointer hover:translate-y-[-2px]"
+            }`}
           style={{
             background: running
               ? "#e5e7eb"
@@ -2169,15 +2154,14 @@ function SimulationPage() {
                 {Object.entries(result.priority_breakdown).map(([p, count]) => (
                   <div
                     key={p}
-                    className={`flex items-center gap-4 px-6 py-3 rounded-2xl border-2 bg-white/80 backdrop-blur-sm ${
-                      p === "critical"
-                        ? "border-rose-200 text-rose-700"
-                        : p === "high"
-                          ? "border-orange-200 text-orange-700"
-                          : p === "moderate"
-                            ? "border-amber-200 text-amber-700"
-                            : "border-emerald-200 text-emerald-700"
-                    }`}
+                    className={`flex items-center gap-4 px-6 py-3 rounded-2xl border-2 bg-white/80 backdrop-blur-sm ${p === "critical"
+                      ? "border-rose-200 text-rose-700"
+                      : p === "high"
+                        ? "border-orange-200 text-orange-700"
+                        : p === "moderate"
+                          ? "border-amber-200 text-amber-700"
+                          : "border-emerald-200 text-emerald-700"
+                      }`}
                   >
                     <span className="font-black text-2xl">{count}</span>
                     <span className="text-xs font-black uppercase tracking-widest opacity-80">
@@ -2206,6 +2190,43 @@ function HospitalAiAssistant() {
   const [loading, setLoading] = useState(false);
   const [started, setStarted] = useState(false);
   const [msgs, setMsgs] = useState([]);
+  const messagesEndRef = useRef(null);
+
+  const scrollToBottom = () => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  };
+
+  useEffect(() => {
+    scrollToBottom();
+  }, [msgs, loading]);
+
+  const renderMessageText = (text) => {
+    if (!text) return null;
+    return text.split("\n").map((line, i) => {
+      let cleanLine = line.trim();
+      let isBullet = false;
+
+      if (cleanLine.startsWith("* ")) {
+        isBullet = true;
+        cleanLine = cleanLine.substring(2);
+      }
+
+      const parts = cleanLine.split(/(\*\*.*?\*\*)/g);
+      const formatted = parts.map((part, idx) => {
+        if (part.startsWith("**") && part.endsWith("**")) {
+          return <strong key={idx} className="font-black text-indigo-900">{part.slice(2, -2)}</strong>;
+        }
+        return part;
+      });
+
+      return (
+        <div key={i} className={`flex gap-2 ${isBullet ? "ml-1" : ""} ${line.trim() === "" ? "h-2" : ""}`}>
+          {isBullet && <span className="text-indigo-500 font-bold shrink-0">•</span>}
+          <div className="flex-1">{formatted}</div>
+        </div>
+      );
+    });
+  };
 
   const fetchInsight = async (
     userText = "Give me a quick summary of the current hospital situation.",
@@ -2280,19 +2301,18 @@ function HospitalAiAssistant() {
               <X size={20} />
             </button>
           </div>
-          
+
           {/* Messages */}
           <div className="flex-1 p-4 overflow-y-auto flex flex-col gap-3 bg-gray-50/50">
             {msgs.map((m, i) => (
               <div
                 key={i}
-                className={`max-w-[85%] p-3 text-sm rounded-2xl shadow-sm ${
-                  m.role === "user"
-                    ? "self-end bg-indigo-600 text-white rounded-br-none"
-                    : "self-start bg-white border border-gray-200 text-gray-700 rounded-bl-none"
-                }`}
+                className={`max-w-[85%] p-3 text-sm rounded-2xl shadow-sm ${m.role === "user"
+                  ? "self-end bg-indigo-600 text-white rounded-br-none"
+                  : "self-start bg-white border border-gray-200 text-gray-700 rounded-bl-none"
+                  }`}
               >
-                {m.text}
+                {renderMessageText(m.text)}
               </div>
             ))}
             {loading && (
@@ -2302,8 +2322,9 @@ function HospitalAiAssistant() {
                 <div className="w-2 h-2 bg-indigo-400 rounded-full animate-bounce" />
               </div>
             )}
+            <div ref={messagesEndRef} />
           </div>
-          
+
           {/* Input */}
           <form onSubmit={sendMsg} className="flex border-t border-gray-200 bg-white/80 backdrop-blur-sm p-2">
             <input
@@ -2316,11 +2337,10 @@ function HospitalAiAssistant() {
             <button
               type="submit"
               disabled={!input.trim() || loading}
-              className={`p-2 rounded-xl transition-all ${
-                input.trim() && !loading
-                  ? "text-indigo-600 hover:bg-indigo-50"
-                  : "text-gray-300 cursor-not-allowed"
-              }`}
+              className={`p-2 rounded-xl transition-all ${input.trim() && !loading
+                ? "text-indigo-600 hover:bg-indigo-50"
+                : "text-gray-300 cursor-not-allowed"
+                }`}
             >
               <Send size={18} />
             </button>
