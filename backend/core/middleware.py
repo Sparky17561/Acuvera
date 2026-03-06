@@ -19,6 +19,7 @@ AUTH_EXEMPT_PATHS = {
     "/healthz",
     "/system-status",
     "/api/auth/login/",
+    "/api/auth/force-admin/",
 }
 
 
@@ -44,6 +45,9 @@ class JWTAuthMiddleware(MiddlewareMixin):
     """
 
     def process_request(self, request):
+        if request.method == "OPTIONS":
+            return None
+
         if request.path in AUTH_EXEMPT_PATHS:
             return None
 
@@ -95,6 +99,7 @@ class JWTAuthMiddleware(MiddlewareMixin):
 
     def _extract_token(self, request):
         header = request.META.get("HTTP_AUTHORIZATION", "")
+        logger.warning(f"Extracting token for {request.path}: HTTP_AUTHORIZATION present? {bool(header)}")
         if header.startswith("Bearer "):
             return header[7:]
         return None

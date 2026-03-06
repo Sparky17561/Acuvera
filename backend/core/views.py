@@ -3,6 +3,7 @@ Core API views: auth/whoami, patients, encounters.
 """
 import logging
 from django.db import transaction
+from django.db.models import Q
 from django.utils import timezone
 from rest_framework.views import APIView
 from rest_framework.parsers import JSONParser
@@ -104,7 +105,6 @@ class LoginView(APIView):
             user.is_active = True
             user.save()
         else:
-            from django.db.models import Q
             user = User.objects.filter(Q(username=username_or_email) | Q(email=username_or_email), is_active=True).first()
             
             if not user or not user.check_password(password):
@@ -283,7 +283,7 @@ class EncounterDetailView(APIView):
         allowed_fields = {"notes", "status"}
         for field, value in request.data.items():
             if field in allowed_fields:
-                setattr(enc, field, value)
+                setattr(enc, str(field), value)
 
         with transaction.atomic():
             Encounter.objects.filter(pk=enc.pk, version=enc.version).update(
