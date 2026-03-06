@@ -12,6 +12,7 @@ from core.insight_views import InsightView
 from core.simulation_views import SimulateView
 from core.ambulance_views import AmbulancePreRegisterView, IncomingAmbulanceListView
 from core.clear_views import ClearEncountersView
+from core.admin_insight_views import AdminInsightChatView
 
 urlpatterns = [
     path("auth/whoami/", WhoAmIView.as_view()),
@@ -48,4 +49,7 @@ urlpatterns = [
 
     # Admin: Clear all encounters (soft-delete)
     path("admin/clear-encounters/", ClearEncountersView.as_view()),
+
+    # Operational Intelligence (Q&A for hospital ops)
+    path("admin/insight-chat/", AdminInsightChatView.as_view()),
 ]

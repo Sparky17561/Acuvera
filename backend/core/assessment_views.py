@@ -175,10 +175,7 @@ class CompleteAssessmentView(APIView):
             f"{vitals_str or 'Not recorded'}\n\n"
             f"PRESENTING SYMPTOMS\n"
             f"{'-' * 30}\n"
-            f"{symptoms_str or 'Not recorded'}\n\n"
-            f"CLINICAL ASSESSMENT\n"
-            f"{'-' * 30}\n"
-            f"{doc_notes}"
+            f"{symptoms_str or 'Not recorded'}"
         )
 
         # Try LLM

@@ -85,6 +85,8 @@ export const AdminAPI = {
     deleteDepartment: (id) => api.delete(`/departments/${id}/`).then(r => r.data.data),
     // Clear all encounters (admin reset)
     clearEncounters: (mode = 'encounters') => api.post('/admin/clear-encounters/', { mode }).then(r => r.data.data),
+    // Assistant chat
+    insightChat: (data) => api.post('/admin/insight-chat/', data).then(r => r.data.data),
 }
 
 export const AssessmentAPI = {

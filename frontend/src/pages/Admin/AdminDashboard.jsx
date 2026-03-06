@@ -4,6 +4,7 @@ import {
     AreaChart, Area, BarChart, Bar, XAxis, YAxis, Tooltip,
     ResponsiveContainer, CartesianGrid, LineChart, Line, Legend, Cell
 } from 'recharts'
+import { MessageSquare, X, Send, Bot } from 'lucide-react'
 import Shell from '../../components/Shell'
 import { AdminAPI, AuthAPI, SimulateAPI } from '../../api/client'
 
@@ -1325,6 +1326,130 @@ function SimulationPage() {
     )
 }
 
+// ─── Operational AI Insight Assistant ──────────────────────────
+function HospitalAiAssistant() {
+    const [isOpen, setIsOpen] = useState(false)
+    const [input, setInput] = useState('')
+    const [loading, setLoading] = useState(false)
+    const [started, setStarted] = useState(false)
+    const [msgs, setMsgs] = useState([])
+
+    const fetchInsight = async (userText = "Give me a quick summary of the current hospital situation.", isUserMessage = false) => {
+        setLoading(true)
+        if (isUserMessage) {
+            setMsgs(prev => [...prev, { role: 'user', text: userText }])
+        }
+
+        try {
+            const [overview, starvation] = await Promise.all([
+                AdminAPI.overview().catch(() => ({})),
+                AdminAPI.starvationAlerts().catch(() => [])
+            ])
+            const contextStr = JSON.stringify({
+                active_patients: overview?.active_patients || 0,
+                starving_cases: Array.isArray(starvation) ? starvation.length : 0,
+                avg_wait_minutes: overview?.avg_wait_minutes || 0,
+                queue_load: overview?.queue_load || 'Normal',
+                doctor_utilization: overview?.doctor_utilization_pct || 0,
+                critical_cases: overview?.priority_distribution?.critical || 0
+            })
+
+            const res = await AdminAPI.insightChat({ prompt: userText, context: contextStr })
+            setMsgs(prev => [...prev, { role: 'ai', text: res.answer }])
+        } catch (err) {
+            setMsgs(prev => [...prev, { role: 'ai', text: '⚠️ Unable to reach the intelligence layer.' }])
+        } finally {
+            setLoading(false)
+        }
+    }
+
+    useEffect(() => {
+        if (isOpen && !started) {
+            setStarted(true)
+            fetchInsight("Give me a quick summary of the current hospital situation.", false)
+        }
+    }, [isOpen, started])
+
+    const sendMsg = async (e) => {
+        if (e) e.preventDefault()
+        if (!input.trim() || loading) return
+
+        const userText = input.trim()
+        setInput('')
+        await fetchInsight(userText, true)
+    }
+
+    return (
+        <div style={{ position: 'fixed', bottom: '2rem', right: '2rem', zIndex: 9999 }}>
+            {isOpen ? (
+                <div style={{
+                    width: 380, height: 500, background: 'var(--surface)', border: '1px solid var(--border)',
+                    borderRadius: 16, display: 'flex', flexDirection: 'column', overflow: 'hidden',
+                    boxShadow: '0 20px 40px rgba(0,0,0,0.4)', animation: 'slideUp 0.3s ease-out'
+                }}>
+                    <div style={{ background: '#4f46e5', padding: '1rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: '#fff', fontWeight: 700 }}>
+                            <Bot size={20} /> Operations AI
+                        </div>
+                        <button onClick={() => setIsOpen(false)} style={{ background: 'transparent', border: 'none', color: '#fff', cursor: 'pointer', padding: 4 }}>
+                            <X size={20} />
+                        </button>
+                    </div>
+                    <div style={{ flex: 1, padding: '1rem', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '1rem', background: '#0f172a' }}>
+                        {msgs.map((m, i) => (
+                            <div key={i} style={{
+                                alignSelf: m.role === 'user' ? 'flex-end' : 'flex-start',
+                                maxWidth: '85%', padding: '0.85rem 1rem', fontSize: '0.85rem',
+                                borderRadius: m.role === 'user' ? '12px 12px 0 12px' : '12px 12px 12px 0',
+                                background: m.role === 'user' ? '#4f46e5' : 'var(--surface2)',
+                                color: m.role === 'user' ? '#fff' : 'var(--text)',
+                                border: m.role === 'ai' ? '1px solid var(--border)' : 'none',
+                                whiteSpace: 'pre-wrap', lineHeight: 1.5
+                            }}>
+                                {m.text}
+                            </div>
+                        ))}
+                        {loading && (
+                            <div style={{ display: 'flex', gap: '0.3rem', alignSelf: 'flex-start', padding: '1rem' }}>
+                                <div className="pulse-dot" style={{ width: 6, height: 6, background: '#4f46e5', borderRadius: '50%', animation: 'pulse 1.5s infinite' }} />
+                                <div className="pulse-dot" style={{ width: 6, height: 6, background: '#4f46e5', borderRadius: '50%', animation: 'pulse 1.5s infinite 0.2s' }} />
+                                <div className="pulse-dot" style={{ width: 6, height: 6, background: '#4f46e5', borderRadius: '50%', animation: 'pulse 1.5s infinite 0.4s' }} />
+                            </div>
+                        )}
+                    </div>
+                    <form onSubmit={sendMsg} style={{ display: 'flex', borderTop: '1px solid var(--border)', background: 'var(--surface)' }}>
+                        <input
+                            type="text"
+                            value={input}
+                            onChange={e => setInput(e.target.value)}
+                            placeholder="Ask about hospital metrics..."
+                            style={{ flex: 1, padding: '1rem', border: 'none', background: 'transparent', color: 'var(--text)', outline: 'none' }}
+                        />
+                        <button type="submit" disabled={!input.trim() || loading} style={{
+                            padding: '0 1.25rem', background: 'transparent', border: 'none',
+                            color: input.trim() ? '#4f46e5' : 'var(--text-muted)', cursor: input.trim() ? 'pointer' : 'default'
+                        }}>
+                            <Send size={18} />
+                        </button>
+                    </form>
+                </div>
+            ) : (
+                <button
+                    onClick={() => setIsOpen(true)}
+                    style={{
+                        width: 56, height: 56, borderRadius: '50%', background: '#4f46e5', color: '#fff',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center', border: 'none',
+                        cursor: 'pointer', boxShadow: '0 8px 24px rgba(79,70,229,0.4)',
+                        transition: 'transform 0.2s', ':hover': { transform: 'scale(1.05)' }
+                    }}
+                >
+                    <MessageSquare size={24} />
+                </button>
+            )}
+        </div>
+    )
+}
+
 export default function AdminDashboard() {
     return (
         <Shell>
@@ -1337,6 +1462,7 @@ export default function AdminDashboard() {
                 <Route path="config" element={<ConfigPage />} />
                 <Route path="staff" element={<StaffPage />} />
             </Routes>
+            <HospitalAiAssistant />
         </Shell>
     )
 }

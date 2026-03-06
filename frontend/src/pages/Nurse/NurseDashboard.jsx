@@ -18,6 +18,96 @@ function waitLabel(createdAt, endTime) {
     return `${Math.floor(mins / 60)}h ${mins % 60}m`
 }
 
+// ─── Formatted Report Component ───────────────────────────────────
+const FormattedReport = ({ text }) => {
+    if (!text) return 'No automated report available.';
+    const lines = text.split('\n');
+    const elements = [];
+
+    let skipSection = false;
+    for (let i = 0; i < lines.length; i++) {
+        const line = lines[i].trim();
+
+        // Skip redundant CLINICAL ASSESSMENT block on older saved fallback reports
+        if (line === 'CLINICAL ASSESSMENT') {
+            skipSection = true;
+            continue;
+        }
+        if (skipSection) {
+            // we skip until we hit a new section divider
+            if (/^[-=]{5,}$/.test(line)) {
+                // but the line before the divider was the header, which we also skipped, so we just continue skipping
+                continue;
+            }
+            if (line === '' && i + 1 < lines.length && /^[A-Z\s]+$/.test(lines[i + 1].trim()) && /^[-=]{5,}$/.test(lines[i + 2]?.trim() || '')) {
+                skipSection = false;
+            }
+            if (skipSection) continue;
+        }
+
+        // Check if current line is an ASCII divider
+        if (/^[-=]{5,}$/.test(line)) {
+            if (elements.length > 0) {
+                const prev = elements.pop();
+                elements.push({
+                    type: 'header',
+                    text: prev.text.replace(/[:-]$/, '').trim(),
+                    isMain: line.includes('=')
+                });
+            }
+        } else if (line) {
+            elements.push({ type: 'text', text: line });
+        } else if (!line && elements.length > 0 && elements[elements.length - 1].type !== 'break') {
+            elements.push({ type: 'break' });
+        }
+    }
+
+    return (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+            {elements.map((el, i) => {
+                if (el.type === 'header') {
+                    return (
+                        <div key={i} style={{
+                            marginTop: i > 0 ? '1.25rem' : '0.25rem',
+                            marginBottom: '0.25rem',
+                            fontSize: el.isMain ? '0.85rem' : '0.75rem',
+                            fontWeight: 800,
+                            color: el.isMain ? 'var(--text)' : 'var(--text-muted)',
+                            letterSpacing: '0.05em',
+                            textTransform: 'uppercase',
+                            borderBottom: '1px solid var(--border)',
+                            paddingBottom: '0.4rem'
+                        }}>
+                            {el.text}
+                        </div>
+                    );
+                } else if (el.type === 'break') {
+                    return <div key={i} style={{ height: '0.2rem' }} />;
+                }
+
+                let content = el.text;
+                if (content.includes('|') && content.includes(':')) {
+                    const parts = content.split('|').map(p => p.trim());
+                    return (
+                        <div key={i} style={{ display: 'flex', flexWrap: 'wrap', gap: '0.75rem', marginBottom: '0.25rem', marginTop: '0.25rem' }}>
+                            {parts.map((part, idx) => {
+                                const [k, ...v] = part.split(':');
+                                return k && v.length ? (
+                                    <span key={idx} style={{ background: 'var(--surface)', padding: '0.2rem 0.5rem', borderRadius: 4, border: '1px solid var(--border)', fontSize: '0.8rem' }}>
+                                        <strong style={{ color: 'var(--text-muted)' }}>{k.trim()}:</strong> <span style={{ color: '#e2e8f0', fontWeight: 600 }}>{v.join(':').trim()}</span>
+                                    </span>
+                                ) : <span key={idx} style={{ fontSize: '0.85rem' }}>{part}</span>;
+                            })}
+                        </div>
+                    );
+                }
+
+                return <div key={i} style={{ fontSize: '0.85rem', color: '#cbd5e1', lineHeight: 1.55 }}>{content}</div>;
+            })}
+        </div>
+    );
+};
+
 // ─── Report Viewer Modal ─────────────────────────────────────────
 function ReportModal({ encounter, onClose }) {
     const [report, setReport] = useState(null)
@@ -73,12 +163,9 @@ function ReportModal({ encounter, onClose }) {
                                 </div>
                                 <div style={{
                                     background: 'var(--surface2)', borderRadius: 8, padding: '1rem',
-                                    lineHeight: 1.75, color: 'var(--text)',
-                                    whiteSpace: 'pre-wrap', marginBottom: '1rem',
-                                    fontFamily: isLLMReport ? 'inherit' : 'monospace',
-                                    fontSize: isLLMReport ? '0.9rem' : '0.82rem',
+                                    marginBottom: '1rem'
                                 }}>
-                                    {report.report_text}
+                                    <FormattedReport text={report.report_text} />
                                 </div>
                             </>
                         )}

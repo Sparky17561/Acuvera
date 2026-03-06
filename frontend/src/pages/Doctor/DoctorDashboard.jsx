@@ -1017,6 +1017,96 @@ function MyCasesPage() {
 }
 
 // ─── Patient History Page ─────────────────────────────────────
+const FormattedReport = ({ text }) => {
+    if (!text) return 'No automated report available.';
+    const lines = text.split('\n');
+    const elements = [];
+
+    let skipSection = false;
+    for (let i = 0; i < lines.length; i++) {
+        const line = lines[i].trim();
+
+        // Skip redundant CLINICAL ASSESSMENT block on older saved fallback reports
+        if (line === 'CLINICAL ASSESSMENT') {
+            skipSection = true;
+            continue;
+        }
+        if (skipSection) {
+            // we skip until we hit a new section divider
+            if (/^[-=]{5,}$/.test(line)) {
+                // but the line before the divider was the header, which we also skipped, so we just continue skipping
+                continue;
+            }
+            if (line === '' && i + 1 < lines.length && /^[A-Z\s]+$/.test(lines[i + 1].trim()) && /^[-=]{5,}$/.test(lines[i + 2]?.trim() || '')) {
+                skipSection = false;
+            }
+            if (skipSection) continue;
+        }
+
+        // Check if current line is an ASCII divider
+        if (/^[-=]{5,}$/.test(line)) {
+            if (elements.length > 0) {
+                const prev = elements.pop();
+                elements.push({
+                    type: 'header',
+                    text: prev.text.replace(/[:-]$/, '').trim(), // Clean trailing colons
+                    isMain: line.includes('=')
+                });
+            }
+        } else if (line) {
+            elements.push({ type: 'text', text: line });
+        } else if (!line && elements.length > 0 && elements[elements.length - 1].type !== 'break') {
+            elements.push({ type: 'break' });
+        }
+    }
+
+    return (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+            {elements.map((el, i) => {
+                if (el.type === 'header') {
+                    return (
+                        <div key={i} style={{
+                            marginTop: i > 0 ? '1.25rem' : '0.25rem',
+                            marginBottom: '0.25rem',
+                            fontSize: el.isMain ? '0.8rem' : '0.72rem',
+                            fontWeight: 800,
+                            color: el.isMain ? 'var(--text)' : 'var(--text-muted)',
+                            letterSpacing: '0.05em',
+                            textTransform: 'uppercase',
+                            borderBottom: '1px solid var(--border)',
+                            paddingBottom: '0.4rem'
+                        }}>
+                            {el.text}
+                        </div>
+                    );
+                } else if (el.type === 'break') {
+                    return <div key={i} style={{ height: '0.2rem' }} />;
+                }
+
+                // For key-value pairs separated by colons or pipes, let's style them slightly better if they have a clear structure.
+                let content = el.text;
+                if (content.includes('|') && content.includes(':')) {
+                    const parts = content.split('|').map(p => p.trim());
+                    return (
+                        <div key={i} style={{ display: 'flex', flexWrap: 'wrap', gap: '0.75rem', marginBottom: '0.25rem', marginTop: '0.25rem' }}>
+                            {parts.map((part, idx) => {
+                                const [k, ...v] = part.split(':');
+                                return k && v.length ? (
+                                    <span key={idx} style={{ background: 'var(--surface)', padding: '0.2rem 0.5rem', borderRadius: 4, border: '1px solid var(--border)', fontSize: '0.8rem' }}>
+                                        <strong style={{ color: 'var(--text-muted)' }}>{k.trim()}:</strong> <span style={{ color: '#e2e8f0', fontWeight: 600 }}>{v.join(':').trim()}</span>
+                                    </span>
+                                ) : <span key={idx} style={{ fontSize: '0.85rem' }}>{part}</span>;
+                            })}
+                        </div>
+                    );
+                }
+
+                return <div key={i} style={{ fontSize: '0.85rem', color: '#cbd5e1', lineHeight: 1.55 }}>{content}</div>;
+            })}
+        </div>
+    );
+};
+
 function PatientHistoryPage() {
     const { user } = useAuthStore()
     const [pastCases, setPastCases] = useState([])
@@ -1058,48 +1148,74 @@ function PatientHistoryPage() {
                     <p className="text-slate-500 font-medium">No completed cases in your history yet</p>
                 </div>
             ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '1.5rem', paddingBottom: '2rem' }}>
                     {pastCases.map(enc => (
-                        <div key={enc.id} className="bg-slate-900/40 border border-slate-800 hover:border-slate-700 rounded-3xl p-6 transition-all group overflow-hidden">
-                            <div className="flex justify-between items-start mb-6">
-                                <div className="flex items-center gap-4">
-                                    <div className="w-10 h-10 rounded-xl bg-slate-800 flex items-center justify-center text-lg grayscale group-hover:grayscale-0 transition-all">👤</div>
+                        <div key={enc.id} style={{
+                            background: 'var(--surface2)',
+                            border: '1px solid var(--border)',
+                            borderRadius: 12,
+                            padding: '1.25rem',
+                            display: 'flex', flexDirection: 'column', gap: '1rem',
+                        }}>
+                            {/* Header */}
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                                    <div style={{
+                                        width: 44, height: 44, borderRadius: '50%', background: 'rgba(99,102,241,0.15)',
+                                        color: '#818cf8', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.2rem'
+                                    }}>
+                                        👤
+                                    </div>
                                     <div>
-                                        <h4 className="font-bold text-slate-200">{enc.patient_detail?.name || 'Unknown'}</h4>
-                                        <div className="text-[10px] text-slate-500 font-black tracking-widest uppercase mt-0.5">
+                                        <h4 style={{ margin: 0, fontSize: '1.1rem', fontWeight: 700, color: 'var(--text)' }}>
+                                            {enc.patient_detail?.name || 'Unknown Patient'}
+                                        </h4>
+                                        <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '0.2rem', fontWeight: 600 }}>
                                             {new Date(enc.updated_at).toLocaleDateString()} · {new Date(enc.updated_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                                         </div>
-                                        {(enc.floor || enc.room_number) && (
-                                            <div className="flex items-center gap-1 mt-1 text-[10px] text-blue-400/70 font-medium">
-                                                <MapPin size={10} />
-                                                {[enc.floor && `F ${enc.floor}`, enc.room_number && `R ${enc.room_number}`, enc.bed_number && `B ${enc.bed_number}`].filter(Boolean).join(' · ')}
-                                            </div>
-                                        )}
                                     </div>
                                 </div>
-                                <div className="flex flex-col items-end gap-2">
-                                    <div className="p-2 bg-emerald-500/5 text-emerald-500/50 rounded-lg"><CheckCircle size={16} /></div>
-                                    {enc.priority && <PriorityBadge priority={enc.priority} />}
+                                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '0.5rem' }}>
+                                    <PriorityBadge priority={enc.priority} />
+                                    <div style={{ fontSize: '0.8rem', color: 'var(--success)', display: 'flex', alignItems: 'center', gap: '0.3rem', fontWeight: 600 }}>
+                                        <CheckCircle size={14} /> Completed
+                                    </div>
                                 </div>
                             </div>
 
+                            {/* Info Bar */}
+                            {(enc.floor || enc.room_number) && (
+                                <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', display: 'flex', gap: '0.5rem', alignItems: 'center', background: 'var(--surface)', padding: '0.5rem 0.75rem', borderRadius: 8, width: 'fit-content' }}>
+                                    <MapPin size={12} />
+                                    {[enc.floor && `Floor ${enc.floor}`, enc.room_number && `Room ${enc.room_number}`, enc.bed_number && `Bed ${enc.bed_number}`].filter(Boolean).join(' · ')}
+                                </div>
+                            )}
+
+                            {/* EMR Summary */}
                             {enc.assessment_detail && (
-                                <div className="relative">
-                                    <div className="absolute top-0 bottom-0 left-0 w-1 bg-emerald-500/20 rounded-full" />
-                                    <div className="pl-6">
-                                        <div className="text-[10px] font-black text-emerald-500/80 uppercase tracking-[0.2em] mb-3">EMR Summary</div>
-                                        <div className="text-sm text-slate-300 leading-relaxed line-clamp-3 group-hover:line-clamp-none transition-all duration-500">
-                                            {enc.assessment_detail.report_text || 'No automated report available.'}
-                                        </div>
-                                        {enc.assessment_detail.notes && (
-                                            <div className="mt-4 pt-4 border-t border-slate-800/50">
-                                                <div className="text-[10px] font-black text-slate-600 uppercase tracking-widest mb-2">Physician Progress Notes</div>
-                                                <div className="text-xs text-slate-400 italic bg-slate-950/40 p-3 rounded-xl border border-slate-800/50">
-                                                    "{enc.assessment_detail.notes}"
-                                                </div>
-                                            </div>
-                                        )}
+                                <div style={{
+                                    background: 'var(--surface)', borderRadius: 8, padding: '1.25rem',
+                                    border: '1px solid rgba(16,185,129,0.15)', borderLeft: '4px solid #10b981'
+                                }}>
+                                    <div style={{ fontSize: '0.7rem', fontWeight: 800, color: '#10b981', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '1.25rem' }}>
+                                        EMR System Summary
                                     </div>
+                                    <FormattedReport text={enc.assessment_detail.report_text} />
+
+                                    {enc.assessment_detail.notes && (
+                                        <div style={{ marginTop: '1.75rem', paddingTop: '1.25rem', borderTop: '1px solid var(--border)' }}>
+                                            <div style={{ fontSize: '0.7rem', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '0.5rem' }}>
+                                                Physician Progress Notes
+                                            </div>
+                                            <div style={{
+                                                fontSize: '0.85rem', color: 'var(--text-muted)', fontStyle: 'italic',
+                                                background: 'rgba(0,0,0,0.15)', padding: '0.75rem', borderRadius: 8,
+                                                border: '1px solid var(--border)'
+                                            }}>
+                                                "{enc.assessment_detail.notes}"
+                                            </div>
+                                        </div>
+                                    )}
                                 </div>
                             )}
                         </div>
