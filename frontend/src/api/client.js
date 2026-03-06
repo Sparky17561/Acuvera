@@ -17,8 +17,9 @@ api.interceptors.response.use(
     (res) => res,
     (err) => {
         if (err.response?.status === 401) {
+            console.error("AXIOS 401: Temporarily preventing redirect to see errors", err)
             localStorage.removeItem('acuvera_token')
-            window.location.href = '/login'
+            // window.location.href = '/login'
         }
         return Promise.reject(err)
     }
