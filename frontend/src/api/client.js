@@ -1,7 +1,11 @@
 import axios from 'axios'
 
+// Ensure baseURL always ends with /api
+const rawBaseURL = import.meta.env.VITE_API_URL || '/api'
+const baseURL = rawBaseURL.endsWith('/api') ? rawBaseURL : rawBaseURL.replace(/\/$/, '') + '/api'
+
 const api = axios.create({
-    baseURL: import.meta.env.VITE_API_URL,
+    baseURL,
     headers: { 'Content-Type': 'application/json' },
 })
 
@@ -17,9 +21,8 @@ api.interceptors.response.use(
     (res) => res,
     (err) => {
         if (err.response?.status === 401) {
-            console.error("AXIOS 401: Temporarily preventing redirect to see errors", err)
             localStorage.removeItem('acuvera_token')
-            // window.location.href = '/login'
+            window.location.href = '/login'
         }
         return Promise.reject(err)
     }
