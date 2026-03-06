@@ -6,12 +6,14 @@ import { AuthAPI } from '../api/client'
 
 export default function LoginPage() {
     const { setToken, fetchUser, isLoading, user } = useAuthStore()
+    const navigate = useNavigate()
     const [mode, setMode] = useState('doctor')
     const [username, setUsername] = useState('')
     const [password, setPassword] = useState('')
     const [error, setError] = useState('')
 
-    if (user) {
+    // Only redirect if there is a user AND we aren't actively loading them
+    if (user && !isLoading) {
         return <Navigate to="/" replace />
     }
 
