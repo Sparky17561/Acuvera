@@ -267,8 +267,8 @@ function RejectModal({ encounter, onClose, onDone }) {
                             key={r}
                             onClick={() => setReason(r)}
                             className={`rounded-lg px-4 py-2 text-left text-sm font-medium capitalize transition-all ${reason === r
-                                    ? "bg-rose-600 text-white"
-                                    : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                                ? "bg-rose-600 text-white"
+                                : "bg-gray-100 text-gray-700 hover:bg-gray-200"
                                 }`}
                         >
                             {r.replace(/_/g, " ")}
@@ -369,8 +369,8 @@ function EscalateModal({ encounter, onClose, onDone }) {
                             key={t.value}
                             onClick={() => setType(t.value)}
                             className={`flex flex-col items-start rounded-lg border-2 p-3 text-left transition-all ${type === t.value
-                                    ? `border-${t.color}-500 bg-${t.color}-50`
-                                    : "border-gray-200 bg-gray-50 hover:border-gray-300"
+                                ? `border-${t.color}-500 bg-${t.color}-50`
+                                : "border-gray-200 bg-gray-50 hover:border-gray-300"
                                 }`}
                         >
                             <span
@@ -725,21 +725,21 @@ function AiInsightPanel({ encounterId, vitals = {} }) {
     };
 
     return (
-        <div className="mb-5 overflow-hidden rounded-xl border border-indigo-200 bg-indigo-50/50 backdrop-blur-sm">
-            <div className="flex items-center justify-between border-b border-indigo-200 bg-indigo-100/50 px-4 py-2">
-                <span className="text-xs font-black uppercase tracking-wider text-indigo-700">
+        <div className="mb-5 animate-in fade-in zoom-in-95 duration-200 rounded-xl border border-slate-200 bg-white shadow-sm">
+            <div className="flex items-center justify-between border-b border-slate-100 bg-slate-50 px-5 py-3">
+                <span className="text-sm font-black tracking-wider text-slate-800">
                     🧠 AI Clinical Insight
                 </span>
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-3">
                     {insight?.cached && (
-                        <span className="text-[10px] font-bold text-gray-500">
+                        <span className="text-[10px] font-bold uppercase tracking-widest text-emerald-600 bg-emerald-100 px-2 py-1 rounded-full">
                             ✓ Cached
                         </span>
                     )}
                     <button
                         onClick={generate}
                         disabled={loading}
-                        className="rounded-md bg-indigo-200/80 px-3 py-1 text-[10px] font-bold text-indigo-800 transition-all hover:bg-indigo-300 disabled:opacity-50"
+                        className="rounded-lg bg-indigo-600 px-4 py-1.5 text-xs font-bold text-white shadow-sm transition-all hover:bg-indigo-700 hover:shadow disabled:opacity-50"
                     >
                         {loading
                             ? "⏳ Generating..."
@@ -753,7 +753,7 @@ function AiInsightPanel({ encounterId, vitals = {} }) {
             {error && <div className="p-3 text-xs text-rose-600">⚠ {error}</div>}
 
             {insight && !error && (
-                <div className="p-4">
+                <div className="p-5">
                     {/* Differentials */}
                     <div className="mb-4">
                         <div className="mb-2 flex items-center gap-2 text-[10px] font-black uppercase tracking-wider text-gray-500">
@@ -764,23 +764,23 @@ function AiInsightPanel({ encounterId, vitals = {} }) {
                             {(insight.differentials || []).map((d, i) => (
                                 <div
                                     key={i}
-                                    className={`rounded-lg border p-3 ${confColor(d.confidence)}`}
+                                    className={`rounded-xl border p-4 shadow-sm transition-all hover:shadow-md ${confColor(d.confidence)}`}
                                 >
-                                    <div className="flex items-center gap-2">
+                                    <div className="flex items-center gap-3">
                                         <span
-                                            className={`h-2 w-2 rounded-full ${confColor(d.confidence).split(" ")[0]}`}
+                                            className={`h-3 w-3 rounded-full ${confColor(d.confidence).split(" ")[0].replace("text", "bg")}`}
                                         />
-                                        <span className="text-sm font-bold text-gray-800">
+                                        <span className="text-base font-bold text-slate-800">
                                             {d.condition}
                                         </span>
                                         <span
-                                            className={`ml-auto rounded border px-1.5 py-0.5 text-[9px] font-black uppercase ${confColor(d.confidence)}`}
+                                            className={`ml-auto rounded-full border px-2.5 py-0.5 text-[10px] font-black uppercase tracking-widest ${confColor(d.confidence)}`}
                                         >
                                             {d.confidence}
                                         </span>
                                     </div>
                                     {d.reason && (
-                                        <p className="mt-1 text-xs text-gray-600">{d.reason}</p>
+                                        <p className="mt-2 text-xs leading-relaxed text-slate-600">{d.reason}</p>
                                     )}
                                 </div>
                             ))}
@@ -800,18 +800,18 @@ function AiInsightPanel({ encounterId, vitals = {} }) {
                                 return (
                                     <div
                                         key={i}
-                                        className="rounded-lg border border-blue-200 bg-blue-50/50 p-2"
+                                        className="rounded-xl border border-slate-200 bg-slate-50 p-4"
                                     >
-                                        <div className="flex items-start gap-1">
-                                            <span className="text-xs font-bold text-blue-700">
+                                        <div className="flex items-start gap-2">
+                                            <span className="text-xs font-black text-indigo-600">
                                                 {i + 1}.
                                             </span>
-                                            <span className="text-xs font-semibold text-gray-800">
+                                            <span className="text-sm font-bold text-slate-800">
                                                 {name}
                                             </span>
                                         </div>
                                         {reason && (
-                                            <p className="mt-1 text-[10px] text-gray-600">{reason}</p>
+                                            <p className="mt-2 text-xs leading-relaxed text-slate-600">{reason}</p>
                                         )}
                                     </div>
                                 );
@@ -821,30 +821,30 @@ function AiInsightPanel({ encounterId, vitals = {} }) {
 
                     {/* Vitals-Based Explainability */}
                     {buildVitalsExplainability(vitals).length > 0 && (
-                        <div className="mb-4 rounded-lg border border-purple-200 bg-purple-50/50 p-3">
-                            <div className="mb-2 flex items-center gap-2 text-[10px] font-black uppercase tracking-wider text-purple-700">
-                                <span className="h-3 w-0.5 rounded-full bg-purple-500" />
+                        <div className="mb-4 rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+                            <div className="mb-4 flex items-center gap-2 text-xs font-black uppercase tracking-widest text-purple-700">
+                                <span className="h-4 w-1 rounded-full bg-purple-500" />
                                 Vital-Sign Threshold Analysis
                             </div>
-                            <div className="space-y-2">
+                            <div className="space-y-3">
                                 {buildVitalsExplainability(vitals).map((e, i) => (
                                     <div
                                         key={i}
-                                        className="rounded-lg border border-purple-200 bg-purple-100/30 p-2"
+                                        className="rounded-lg border border-slate-100 bg-slate-50 p-3"
                                     >
-                                        <div className="flex items-center gap-1 text-xs">
-                                            <span>{e.flag}</span>
-                                            <span className="font-bold text-purple-800">
+                                        <div className="flex items-center gap-2 text-xs">
+                                            <span className="text-sm">{e.flag}</span>
+                                            <span className="font-bold text-slate-800">
                                                 {e.vital}
                                             </span>
-                                            <span className="rounded bg-purple-200 px-1 py-0.5 font-mono text-[10px] font-bold text-purple-900">
+                                            <span className="rounded-md bg-white px-2 py-1 font-mono text-[11px] font-bold text-purple-700 shadow-sm border border-slate-100">
                                                 {e.value}
                                             </span>
-                                            <span className="ml-auto text-[9px] text-purple-600">
+                                            <span className="ml-auto text-[10px] font-bold text-purple-600">
                                                 {e.threshold}
                                             </span>
                                         </div>
-                                        <p className="mt-1 text-[10px] text-gray-700">{e.reason}</p>
+                                        <p className="mt-2 text-xs leading-relaxed text-slate-600">{e.reason}</p>
                                     </div>
                                 ))}
                             </div>
@@ -855,15 +855,15 @@ function AiInsightPanel({ encounterId, vitals = {} }) {
                     {(insight.risk_signals ||
                         (insight.differentials || []).filter((d) => d.confidence === "high")
                             .length > 0) && (
-                            <div className="mb-4 rounded-lg border border-amber-200 bg-amber-50/50 p-3">
-                                <div className="mb-2 flex items-center gap-2 text-[10px] font-black uppercase tracking-wider text-amber-700">
-                                    <span className="h-3 w-0.5 rounded-full bg-amber-500" />
+                            <div className="mb-4 rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+                                <div className="mb-4 flex items-center gap-2 text-xs font-black uppercase tracking-widest text-amber-700">
+                                    <span className="h-4 w-1 rounded-full bg-amber-500" />
                                     Key Clinical Flags
                                 </div>
-                                <div className="space-y-1 text-xs text-amber-800">
+                                <div className="space-y-2 text-xs text-slate-800">
                                     {insight.risk_signals?.slice(0, 4).map((sig, i) => (
-                                        <div key={i} className="flex gap-1">
-                                            <span className="text-amber-600">▸</span> {sig}
+                                        <div key={i} className="flex gap-2 leading-relaxed">
+                                            <span className="text-amber-500 font-black">▸</span> {sig}
                                         </div>
                                     ))}
                                 </div>
@@ -872,16 +872,16 @@ function AiInsightPanel({ encounterId, vitals = {} }) {
 
                     {/* Possible Outcomes */}
                     {(insight.possible_outcomes || insight.outcomes) && (
-                        <div className="rounded-lg border border-rose-200 bg-rose-50/50 p-3">
-                            <div className="mb-2 flex items-center gap-2 text-[10px] font-black uppercase tracking-wider text-rose-700">
-                                <span className="h-3 w-0.5 rounded-full bg-rose-500" />
+                        <div className="mb-4 rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+                            <div className="mb-4 flex items-center gap-2 text-xs font-black uppercase tracking-widest text-rose-700">
+                                <span className="h-4 w-1 rounded-full bg-rose-500" />
                                 Possible Outcomes if Untreated
                             </div>
-                            <div className="space-y-1 text-xs text-rose-800">
+                            <div className="space-y-2 text-xs text-slate-800">
                                 {(insight.possible_outcomes || insight.outcomes || []).map(
                                     (o, i) => (
-                                        <div key={i} className="flex gap-1">
-                                            <span className="text-rose-600">⚠</span>{" "}
+                                        <div key={i} className="flex gap-2 leading-relaxed">
+                                            <span className="text-rose-500 font-black">⚠</span>{" "}
                                             {typeof o === "string" ? o : o?.outcome}
                                         </div>
                                     ),
@@ -914,9 +914,9 @@ function AiInsightPanel({ encounterId, vitals = {} }) {
                                             {insight.risk_prediction.overall_deterioration_risk}%
                                         </span>
                                         <span className={`rounded-md px-2 py-0.5 text-[9px] font-black uppercase tracking-wider shadow-sm ${insight.risk_prediction.risk_level === 'CRITICAL' ? 'bg-rose-100 text-rose-700 border border-rose-200' :
-                                                insight.risk_prediction.risk_level === 'HIGH' ? 'bg-amber-100 text-amber-700 border border-amber-200' :
-                                                    insight.risk_prediction.risk_level === 'MODERATE' ? 'bg-blue-100 text-blue-700 border border-blue-200' :
-                                                        'bg-emerald-100 text-emerald-700 border border-emerald-200'
+                                            insight.risk_prediction.risk_level === 'HIGH' ? 'bg-amber-100 text-amber-700 border border-amber-200' :
+                                                insight.risk_prediction.risk_level === 'MODERATE' ? 'bg-blue-100 text-blue-700 border border-blue-200' :
+                                                    'bg-emerald-100 text-emerald-700 border border-emerald-200'
                                             }`}>
                                             {insight.risk_prediction.risk_level}
                                         </span>
@@ -965,7 +965,7 @@ function AiInsightPanel({ encounterId, vitals = {} }) {
             )}
 
             {insight?.disclaimer && (
-                <div className="border-t border-indigo-200 p-2 text-[9px] text-gray-500">
+                <div className="border-t border-slate-100 bg-slate-50 p-4 text-center text-[10px] text-slate-500 rounded-b-xl">
                     {insight.disclaimer}
                 </div>
             )}
@@ -981,6 +981,7 @@ function AssessmentModal({ encounter, onClose, onDone }) {
     const [completing, setCompleting] = useState(false);
     const [report, setReport] = useState(null);
     const [error, setError] = useState(null);
+    const [activeTab, setActiveTab] = useState('insight');
     const fileRef = useRef();
 
     // Load existing assessment
@@ -1135,78 +1136,99 @@ function AssessmentModal({ encounter, onClose, onDone }) {
                     </>
                 ) : (
                     <>
-                        <AiInsightPanel
-                            encounterId={encounter.id}
-                            vitals={encounter.triage_data?.vitals_json || {}}
-                        />
-
-                        {/* Notes */}
-                        <div className="mb-4">
-                            <label className="mb-1 block text-xs font-bold uppercase tracking-wider text-gray-500">
-                                CLINICAL NOTES
-                            </label>
-                            <textarea
-                                rows={6}
-                                className="w-full resize-y rounded-lg border border-gray-300 bg-white/80 p-3 text-sm text-gray-700 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20"
-                                placeholder="Enter clinical observations, examination findings, differential diagnosis, treatment plan..."
-                                value={notes}
-                                onChange={(e) => setNotes(e.target.value)}
-                            />
-                        </div>
-
-                        {/* Media */}
-                        <div className="mb-4">
-                            <div className="mb-2 text-xs font-bold uppercase tracking-wider text-gray-500">
-                                ATTACHMENTS (Photos / Documents)
-                            </div>
-                            <input
-                                ref={fileRef}
-                                type="file"
-                                accept="image/*,application/pdf"
-                                multiple
-                                className="hidden"
-                                onChange={handleFileAdd}
-                            />
+                        <div className="mb-5 flex gap-2 border-b-2 border-slate-100 pb-2">
                             <button
-                                onClick={() => fileRef.current.click()}
-                                className="mb-2 flex items-center gap-1 rounded-lg border border-gray-300 bg-white/80 px-3 py-2 text-xs font-medium text-gray-700 hover:bg-gray-100"
+                                onClick={() => setActiveTab('insight')}
+                                className={`px-5 py-2.5 text-xs font-black uppercase tracking-wider transition-all rounded-lg ${activeTab === 'insight' ? 'text-indigo-700 bg-white shadow-sm border border-slate-200' : 'text-slate-500 hover:text-indigo-600 hover:bg-white/50 border border-transparent'}`}
                             >
-                                <Upload size={14} /> Add Photo / File
+                                AI Clinical Insight
                             </button>
-                            {media.length > 0 && (
-                                <div className="mt-2 flex flex-wrap gap-2">
-                                    {media.map((m, i) => (
-                                        <div key={i} className="relative">
-                                            {m.mime_type?.startsWith("image/") ? (
-                                                <img
-                                                    src={m.preview}
-                                                    alt={m.name}
-                                                    className="h-20 w-20 rounded-lg border border-gray-300 object-cover"
-                                                />
-                                            ) : (
-                                                <div className="flex h-20 w-20 items-center justify-center rounded-lg border border-gray-300 bg-gray-100 p-2 text-center text-[10px] text-gray-600">
-                                                    📄 {m.name}
-                                                </div>
-                                            )}
-                                            {!m._saved && (
-                                                <button
-                                                    onClick={() => removeMedia(i)}
-                                                    className="absolute -right-2 -top-2 flex h-5 w-5 items-center justify-center rounded-full bg-rose-600 text-xs text-white shadow"
-                                                >
-                                                    ✕
-                                                </button>
-                                            )}
-                                        </div>
-                                    ))}
-                                </div>
-                            )}
+                            <button
+                                onClick={() => setActiveTab('notes')}
+                                className={`px-5 py-2.5 text-xs font-black uppercase tracking-wider transition-all rounded-lg ${activeTab === 'notes' ? 'text-indigo-700 bg-white shadow-sm border border-slate-200' : 'text-slate-500 hover:text-indigo-600 hover:bg-white/50 border border-transparent'}`}
+                            >
+                                Assessment Notes
+                            </button>
                         </div>
 
-                        {error && (
-                            <div className="mb-3 text-sm text-rose-600">⚠ {error}</div>
+                        {activeTab === 'insight' ? (
+                            <AiInsightPanel
+                                encounterId={encounter.id}
+                                vitals={encounter.triage_data?.vitals_json || {}}
+                            />
+                        ) : (
+                            <div className="animate-in fade-in zoom-in-95 duration-200">
+                                {/* Notes */}
+                                <div className="mb-4">
+                                    <label className="mb-1 block text-xs font-bold uppercase tracking-wider text-gray-500">
+                                        CLINICAL NOTES
+                                    </label>
+                                    <textarea
+                                        rows={6}
+                                        className="w-full resize-y rounded-lg border border-gray-300 bg-white/80 p-3 text-sm text-gray-700 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20"
+                                        placeholder="Enter clinical observations, examination findings, differential diagnosis, treatment plan..."
+                                        value={notes}
+                                        onChange={(e) => setNotes(e.target.value)}
+                                    />
+                                </div>
+
+                                {/* Media */}
+                                <div className="mb-4">
+                                    <div className="mb-2 text-xs font-bold uppercase tracking-wider text-gray-500">
+                                        ATTACHMENTS (Photos / Documents)
+                                    </div>
+                                    <input
+                                        ref={fileRef}
+                                        type="file"
+                                        accept="image/*,application/pdf"
+                                        multiple
+                                        className="hidden"
+                                        onChange={handleFileAdd}
+                                    />
+                                    <button
+                                        onClick={() => fileRef.current.click()}
+                                        className="mb-2 flex items-center gap-1 rounded-lg border border-gray-300 bg-white/80 px-3 py-2 text-xs font-medium text-gray-700 hover:bg-gray-100"
+                                    >
+                                        <Upload size={14} /> Add Photo / File
+                                    </button>
+                                    {media.length > 0 && (
+                                        <div className="mt-2 flex flex-wrap gap-2">
+                                            {media.map((m, i) => (
+                                                <div key={i} className="relative">
+                                                    {m.mime_type?.startsWith("image/") ? (
+                                                        <img
+                                                            src={m.preview}
+                                                            alt={m.name}
+                                                            className="h-20 w-20 rounded-lg border border-gray-300 object-cover"
+                                                        />
+                                                    ) : (
+                                                        <div className="flex h-20 w-20 items-center justify-center rounded-lg border border-gray-300 bg-gray-100 p-2 text-center text-[10px] text-gray-600">
+                                                            📄 {m.name}
+                                                        </div>
+                                                    )}
+                                                    {!m._saved && (
+                                                        <button
+                                                            onClick={() => removeMedia(i)}
+                                                            className="absolute -right-2 -top-2 flex h-5 w-5 items-center justify-center rounded-full bg-rose-600 text-xs text-white shadow"
+                                                        >
+                                                            ✕
+                                                        </button>
+                                                    )}
+                                                </div>
+                                            ))}
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
                         )}
 
-                        <div className="flex justify-end gap-2">
+                        {error && (
+                            <div className="mb-3 rounded-lg border border-rose-200 bg-rose-50 p-3 text-sm font-bold text-rose-600">
+                                ⚠ {error}
+                            </div>
+                        )}
+
+                        <div className="mt-2 flex justify-end gap-3 border-t border-gray-200 pt-4">
                             <button
                                 onClick={onClose}
                                 className="rounded-lg px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-100"
@@ -1332,8 +1354,8 @@ function MyCasesPage() {
                         <div
                             key={enc.id}
                             className={`group relative rounded-3xl border border-white/50 bg-white/70 p-6 shadow-xl backdrop-blur-xl transition-all hover:border-blue-200 hover:bg-white/80 ${enc.status === "escalated"
-                                    ? "ring-2 ring-rose-500/50 ring-offset-2 ring-offset-white"
-                                    : ""
+                                ? "ring-2 ring-rose-500/50 ring-offset-2 ring-offset-white"
+                                : ""
                                 }`}
                         >
                             <div className="flex flex-col gap-8 lg:flex-row">
