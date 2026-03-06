@@ -83,6 +83,8 @@ export const AdminAPI = {
     createDepartment: (data) => api.post('/departments/', data).then(r => r.data.data),
     updateDepartment: (id, data) => api.patch(`/departments/${id}/`, data).then(r => r.data.data),
     deleteDepartment: (id) => api.delete(`/departments/${id}/`).then(r => r.data.data),
+    // Clear all encounters (admin reset)
+    clearEncounters: (mode = 'encounters') => api.post('/admin/clear-encounters/', { mode }).then(r => r.data.data),
 }
 
 export const AssessmentAPI = {

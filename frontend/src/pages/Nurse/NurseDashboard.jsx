@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { Routes, Route, Navigate, useNavigate } from 'react-router-dom'
 import Shell from '../../components/Shell'
-import { EncounterAPI, PatientAPI, TriageAPI, AllocationAPI, EscalationAPI, AssessmentAPI } from '../../api/client'
+import { EncounterAPI, PatientAPI, TriageAPI, AllocationAPI, EscalationAPI, AssessmentAPI, AdminAPI } from '../../api/client'
 import { Stethoscope, UserPlus, UserCog, FileText, AlertTriangle, RefreshCw } from 'lucide-react'
 import { saveDraft, getAllDrafts, deleteDraft } from '../../store/offlineStore'
 
@@ -136,6 +136,109 @@ function ReportModal({ encounter, onClose }) {
 }
 
 // ─── Triage Modal ─────────────────────────────────────────────
+// ─── Clinical Suggestion Panel ──────────────────────────────
+function ClinicalSuggestionPanel({ result }) {
+    const priorityAdvice = {
+        critical: {
+            icon: '🔴',
+            color: '#ef4444',
+            bg: 'rgba(239,68,68,0.08)',
+            border: 'rgba(239,68,68,0.35)',
+            actions: [
+                '🚑 Immediate resuscitation bay — alert attending physician NOW',
+                '💉 IV access, continuous monitoring (ECG, SpO₂, BP)',
+                '🩺 Assess ABC (Airway, Breathing, Circulation) within 2 minutes',
+                '📋 Activate full code team if cardiac or respiratory arrest suspected',
+                '🏥 Consider ICU transfer if stabilization fails within 10 minutes',
+            ]
+        },
+        high: {
+            icon: '🟠',
+            color: '#f97316',
+            bg: 'rgba(249,115,22,0.08)',
+            border: 'rgba(249,115,22,0.3)',
+            actions: [
+                '👨‍⚕️ Assign attending physician within 10 minutes',
+                '📈 Continuous vital sign monitoring every 5 minutes',
+                '🔬 Order priority labs (CBC, BMP, troponin if chest pain)',
+                '💊 Initiate appropriate first-line treatment per chief complaint',
+                '📢 Notify charge nurse and prepare resuscitation equipment',
+            ]
+        },
+        moderate: {
+            icon: '🟡',
+            color: '#eab308',
+            bg: 'rgba(234,179,8,0.08)',
+            border: 'rgba(234,179,8,0.3)',
+            actions: [
+                '📋 Assess within 30 minutes — queue for physician review',
+                '📊 Repeat vitals every 15–30 minutes',
+                '📝 Document chief complaint and symptom history',
+                '💊 Pain management per protocol if pain score ≥ 5',
+                '👀 Watch for deterioration — escalate if vitals worsen',
+            ]
+        },
+        low: {
+            icon: '🟢',
+            color: '#22c55e',
+            bg: 'rgba(34,197,94,0.08)',
+            border: 'rgba(34,197,94,0.25)',
+            actions: [
+                '⏳ Standard queue — physician review within 60–120 minutes',
+                '📊 Routine vital monitoring every 30 minutes',
+                '📝 Complete registration and triage documentation',
+                '🏠 Assess for safe discharge or low-acuity treatment area',
+                '📱 Patient education: return precautions for symptom escalation',
+            ]
+        }
+    }
+
+    const advice = priorityAdvice[result.priority] || priorityAdvice.moderate
+
+    // Build symptom-specific clinical suggestions
+    const symptomSuggestions = {
+        chest_pain: '💔 ECG within 10 min — rule out STEMI/NSTEMI. Check troponin.',
+        shortness_of_breath: '🫁 SpO₂ trending — consider supplemental O₂ if < 94%. PEEP if needed.',
+        stroke_symptoms: '🧠 CT Head STAT — thrombolysis window is 4.5h from onset.',
+        seizure: '⚡ Time seizure duration — benzodiazepines if > 5 min. Check glucose.',
+        syncope: '❤️ 12-lead ECG + orthostatic BP — rule out arrhythmia.',
+        trauma: '🩹 FAST ultrasound if hemodynamically unstable. C-spine precautions.',
+        altered_mental_status: '🧬 Glucose, electrolytes STAT. Sepsis workup if febrile.',
+        severe_abdominal_pain: '🫀 Upright abdominal X-Ray — free air = perforation emergent.'
+    }
+
+    const triggeredSuggestions = (result.symptoms_contribution || []).map(s => {
+        const key = s.symptom.toLowerCase().replace(/ /g, '_')
+        return symptomSuggestions[key]
+    }).filter(Boolean)
+
+    return (
+        <div style={{ marginTop: '0.75rem', borderRadius: 10, border: `1px solid ${advice.border}`, overflow: 'hidden', background: advice.bg }}>
+            <div style={{ padding: '0.5rem 1rem', display: 'flex', alignItems: 'center', gap: '0.5rem', borderBottom: `1px solid ${advice.border}` }}>
+                <span style={{ fontSize: '0.95rem' }}>{advice.icon}</span>
+                <span style={{ fontSize: '0.7rem', fontWeight: 800, letterSpacing: '0.08em', color: advice.color, textTransform: 'uppercase' }}>
+                    Clinical Suggestions — {result.priority.toUpperCase()} Priority
+                </span>
+            </div>
+            <div style={{ padding: '0.75rem 1rem', display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+                {advice.actions.map((action, i) => (
+                    <div key={i} style={{ fontSize: '0.8rem', color: '#cbd5e1', lineHeight: 1.5 }}>{action}</div>
+                ))}
+                {triggeredSuggestions.length > 0 && (
+                    <>
+                        <div style={{ margin: '0.35rem 0 0.15rem', borderTop: `1px solid ${advice.border}`, paddingTop: '0.5rem', fontSize: '0.68rem', fontWeight: 800, letterSpacing: '0.07em', color: advice.color, textTransform: 'uppercase' }}>
+                            Symptom-Specific Alerts
+                        </div>
+                        {triggeredSuggestions.map((s, i) => (
+                            <div key={i} style={{ fontSize: '0.8rem', color: '#f59e0b', lineHeight: 1.5, fontWeight: 600 }}>{s}</div>
+                        ))}
+                    </>
+                )}
+            </div>
+        </div>
+    )
+}
+
 function TriageModal({ encounter, onClose, onResult }) {
     const [form, setForm] = useState({
         raw_input_text: '', hr: '', spo2: '', bp_systolic: '', bp_diastolic: '',
@@ -145,6 +248,7 @@ function TriageModal({ encounter, onClose, onResult }) {
     const [loading, setLoading] = useState(false)
     const [result, setResult] = useState(null)
     const [listening, setListening] = useState(false)
+    const [parsedPreview, setParsedPreview] = useState(null) // LLM parsed fields preview
 
     const toggleVoice = () => {
         const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -163,6 +267,88 @@ function TriageModal({ encounter, onClose, onResult }) {
         recognition.onerror = () => setListening(false)
         recognition.onend = () => setListening(false)
         recognition.start()
+    }
+
+    // Full client-side parsing that extracts into form fields
+    const applyVitalsToFields = () => {
+        const text = form.raw_input_text
+        if (!text) return
+
+        const extract = (patterns) => {
+            for (const p of patterns) {
+                const m = text.match(p)
+                if (m) return m[1]
+            }
+            return null
+        }
+
+        const hr = extract([/(?:pulse|heart rate|hr)[:\s]+?(\d{2,3})/i, /(\d{2,3})\s*(?:bpm|beats)/i])
+        const spo2 = extract([/(?:spo2?|o2|oxygen|saturation|sat)[:\s]+?(\d{2,3})/i, /(\d{2,3})\s*%?\s*(?:spo2|saturation|o2 sat)/i])
+        const bpM = text.match(/(?:bp|blood pressure)[:\s]*?(\d{2,3})[/\\](\d{2,3})/i)
+        const temp = extract([/(?:temp(?:erature)?)[:\s]+?([\d.]+)/i])
+        const rr = extract([/(?:rr|resp(?:iratory)? rate)[:\s]+?(\d+)/i, /(\d+)\s*(?:\/min|breaths)/i])
+        const gcs = extract([/(?:gcs|glasgow)[:\s]+?(\d+)/i])
+        const pain = extract([/(?:pain)[:\s]+?(\d+)/i, /([0-9]|10)\s*(?:\/10|out of 10)/i])
+
+        // Symptom detection from free text
+        const symptomMap = [
+            { key: 'chest_pain', phrases: ['chest pain', 'chest tightness', 'angina', 'stemi'] },
+            { key: 'shortness_of_breath', phrases: ['short of breath', 'sob', 'dyspnea', 'breathless', 'difficulty breathing'] },
+            { key: 'sweating', phrases: ['sweat', 'diaphoresis', 'sweating', 'perspir'] },
+            { key: 'syncope', phrases: ['faint', 'syncope', 'blackout', 'collapse', 'loss of consciousness'] },
+            { key: 'altered_mental_status', phrases: ['confused', 'disoriented', 'altered', 'delirious', 'unconscious'] },
+            { key: 'severe_headache', phrases: ['headache', 'head pain', 'migraine', 'thunderclap'] },
+            { key: 'seizure', phrases: ['seizure', 'fit', 'convulse', 'epilepsy'] },
+            { key: 'stroke_symptoms', phrases: ['stroke', 'facial droop', 'arm weakness', 'slurred speech', 'tia'] },
+            { key: 'severe_abdominal_pain', phrases: ['abdominal pain', 'abdomen', 'belly pain', 'stomach pain'] },
+            { key: 'trauma', phrases: ['trauma', 'accident', 'fall', 'injury', 'fracture', 'hit'] },
+        ]
+        const lowerText = text.toLowerCase()
+        const detectedSymptoms = symptomMap
+            .filter(s => s.phrases.some(p => lowerText.includes(p)))
+            .map(s => s.key)
+
+        setForm(f => ({
+            ...f,
+            hr: hr ? String(parseInt(hr)) : f.hr,
+            spo2: spo2 ? String(parseInt(spo2)) : f.spo2,
+            bp_systolic: bpM ? bpM[1] : f.bp_systolic,
+            bp_diastolic: bpM ? bpM[2] : f.bp_diastolic,
+            temp: temp ? temp : f.temp,
+            rr: rr ? String(parseInt(rr)) : f.rr,
+            gcs: gcs ? String(parseInt(gcs)) : f.gcs,
+            pain_score: pain ? String(parseInt(pain)) : f.pain_score,
+            symptoms: [...new Set([
+                ...f.symptoms.split(',').map(s => s.trim()).filter(Boolean),
+                ...detectedSymptoms
+            ])].join(', '),
+        }))
+
+        // Show preview of what was extracted
+        const found = [
+            hr && `HR: ${hr}`, spo2 && `SpO₂: ${spo2}%`,
+            bpM && `BP: ${bpM[1]}/${bpM[2]}`, temp && `Temp: ${temp}°F`,
+            rr && `RR: ${rr}`, gcs && `GCS: ${gcs}`, pain && `Pain: ${pain}`,
+            detectedSymptoms.length > 0 && `Symptoms: ${detectedSymptoms.join(', ')}`,
+        ].filter(Boolean)
+        setParsedPreview(found.length > 0 ? found : ['No vitals/symptoms detected — try: "pulse 110, SpO2 94, BP 120/80, chest pain"'])
+    }
+
+    // Live extraction for preview tags only (not filling fields)
+    const extractVitalsFromText = (text) => {
+        if (!text || text.length < 5) { setParsedPreview(null); return }
+        const patterns = [
+            { key: 'HR', regex: /(?:pulse|heart rate|hr)[:\s]+?(\d+)/i },
+            { key: 'BP', regex: /(?:bp|blood pressure)[:\s]+?(\d+\/\d+)/i },
+            { key: 'SpO₂', regex: /(?:spo2?|oxygen|saturation)[:\s]+?(\d+)/i },
+            { key: 'Temp', regex: /(?:temp(?:erature)?)[:\s]+?([\d.]+)/i },
+            { key: 'RR', regex: /(?:rr|resp(?:iratory)? rate)[:\s]+?(\d+)/i },
+        ]
+        const found = patterns.map(p => {
+            const m = text.match(p.regex)
+            return m ? `${p.key}: ${m[1]}` : null
+        }).filter(Boolean)
+        setParsedPreview(found.length > 0 ? found : null)
     }
 
     const RED_FLAG_OPTIONS = [
@@ -185,7 +371,11 @@ function TriageModal({ encounter, onClose, onResult }) {
         try {
             const vitals = {}
             const numericFields = ['hr', 'spo2', 'bp_systolic', 'bp_diastolic', 'temp', 'rr', 'gcs', 'pain_score']
-            numericFields.forEach(f => { if (form[f]) vitals[f] = parseFloat(form[f]) })
+            numericFields.forEach(f => {
+                if (form[f] !== '' && form[f] != null) {
+                    vitals[f] = parseFloat(form[f])
+                }
+            })
             const symptoms = form.symptoms.split(',').map(s => s.trim()).filter(Boolean)
             const red_flags = Object.fromEntries(form.red_flags.map(r => [r, true]))
 
@@ -201,6 +391,7 @@ function TriageModal({ encounter, onClose, onResult }) {
 
             const res = await TriageAPI.analyze(encounter.id, payload)
             setResult(res)
+            setParsedPreview(null)
             onResult(res)
         } catch (err) {
             const errs = err.response?.data?.errors || err.message
@@ -253,25 +444,124 @@ function TriageModal({ encounter, onClose, onResult }) {
 
                 {result ? (
                     <div>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '1rem' }}>
+                        {/* ── Priority Summary ── */}
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '1rem', flexWrap: 'wrap' }}>
                             <PriorityBadge priority={result.priority} />
                             <span style={{ fontSize: '1.5rem', fontWeight: 700 }}>Score: {result.effective_score}</span>
                             <span style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>Confidence: {result.confidence_score}%</span>
+                            {result.aging_bonus > 0 && (
+                                <span style={{ fontSize: '0.75rem', color: 'var(--warn)', background: 'rgba(234,179,8,0.12)', border: '1px solid rgba(234,179,8,0.3)', borderRadius: 6, padding: '0.15rem 0.5rem', fontWeight: 600 }}>
+                                    ⏱ +{result.aging_bonus} wait bonus
+                                </span>
+                            )}
                         </div>
+
                         {result.hard_override && (
                             <div style={{ background: 'rgba(239,68,68,0.15)', border: '1px solid rgba(239,68,68,0.4)', borderRadius: 8, padding: '0.75rem', marginBottom: '1rem', color: 'var(--critical)', fontWeight: 600 }}>
                                 ⚠️ HARD OVERRIDE TRIGGERED
                             </div>
                         )}
-                        {result.explanation_text && (
-                            <div style={{ background: 'var(--surface2)', borderRadius: 8, padding: '0.75rem', marginBottom: '1rem', fontSize: '0.875rem', color: 'var(--text-muted)', lineHeight: 1.6 }}>
-                                {result.explanation_text}
+
+                        {/* ── Score / Confidence / Priority Explanation ── */}
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '0.5rem', marginBottom: '1rem' }}>
+                            {/* Why this score? */}
+                            <div style={{ background: 'rgba(15,23,42,0.6)', border: '1px solid rgba(51,65,85,0.7)', borderRadius: 10, padding: '0.75rem 0.9rem' }}>
+                                <div style={{ fontSize: '0.62rem', fontWeight: 800, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '0.35rem' }}>📊 Why Score {result.effective_score}?</div>
+                                <div style={{ fontSize: '0.72rem', color: '#94a3b8', lineHeight: 1.5 }}>
+                                    Base score <strong style={{ color: '#e2e8f0' }}>{result.risk_score}</strong> from vitals + symptoms
+                                    {result.aging_bonus > 0 && <>, +<strong style={{ color: '#fbbf24' }}>{result.aging_bonus}</strong> wait bonus</>}
+                                    . Thresholds: Low &lt;21, Moderate 21–40, High 41–70, Critical ≥71.
+                                </div>
+                            </div>
+                            {/* Why this confidence? */}
+                            <div style={{ background: 'rgba(15,23,42,0.6)', border: '1px solid rgba(51,65,85,0.7)', borderRadius: 10, padding: '0.75rem 0.9rem' }}>
+                                <div style={{ fontSize: '0.62rem', fontWeight: 800, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '0.35rem' }}>🎯 Why {result.confidence_score}% Confidence?</div>
+                                <div style={{ fontSize: '0.72rem', color: '#94a3b8', lineHeight: 1.5 }}>
+                                    {result.confidence_score >= 80
+                                        ? <><strong style={{ color: '#22c55e' }}>High confidence</strong> — complete vitals and symptoms provided.</> : result.confidence_score >= 50
+                                            ? <><strong style={{ color: '#eab308' }}>Medium confidence</strong> — some vitals are missing. Add HR, SpO₂, BP for better accuracy.</> : <><strong style={{ color: '#ef4444' }}>Low confidence</strong> — insufficient data. Speak or type more vitals before submitting.</>}
+                                </div>
+                            </div>
+                            {/* Why this priority? */}
+                            <div style={{ background: 'rgba(15,23,42,0.6)', border: '1px solid rgba(51,65,85,0.7)', borderRadius: 10, padding: '0.75rem 0.9rem' }}>
+                                <div style={{ fontSize: '0.62rem', fontWeight: 800, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '0.35rem' }}>🏷️ Why {result.priority?.toUpperCase()}?</div>
+                                <div style={{ fontSize: '0.72rem', color: '#94a3b8', lineHeight: 1.5 }}>
+                                    {result.hard_override
+                                        ? <><strong style={{ color: '#ef4444' }}>Hard override</strong> — triggered by a critical red flag (cardiac arrest, low GCS, or critical SpO₂).</> : (result.reasons || []).slice(0, 2).map((r, i) => <div key={i}>• {r}</div>)}
+                                </div>
+                            </div>
+                        </div>
+
+                        {result.final_priority_explanation && (
+                            <div style={{ background: 'linear-gradient(135deg, rgba(59,130,246,0.08), rgba(99,102,241,0.06))', border: '1px solid rgba(59,130,246,0.2)', borderRadius: 10, padding: '0.85rem 1rem', marginBottom: '1rem', fontSize: '0.875rem', color: '#bfdbfe', lineHeight: 1.7, fontWeight: 500 }}>
+                                ℹ️ {result.final_priority_explanation}
                             </div>
                         )}
-                        <div className="section-label">Contributing Reasons</div>
-                        <ul style={{ paddingLeft: '1.25rem', fontSize: '0.875rem', lineHeight: 2, color: 'var(--text-muted)' }}>
-                            {result.reasons.map((r, i) => <li key={i}>{r}</li>)}
-                        </ul>
+
+                        {/* ── Explainability Panel ── */}
+                        <div style={{ borderRadius: 10, border: '1px solid rgba(51,65,85,0.7)', overflow: 'hidden', marginBottom: '1rem' }}>
+
+                            {/* Vitals Analysis */}
+                            {result.vitals_panel?.length > 0 && (
+                                <div style={{ borderBottom: '1px solid rgba(51,65,85,0.5)' }}>
+                                    <div style={{ padding: '0.5rem 1rem', background: 'rgba(15,23,42,0.5)', fontSize: '0.7rem', fontWeight: 800, letterSpacing: '0.08em', color: '#64748b', textTransform: 'uppercase' }}>Vitals Analysis</div>
+                                    <div style={{ padding: '0.5rem 1rem', display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+                                        {result.vitals_panel.map((v, i) => {
+                                            const statusColors = { critical: '#ef4444', warning: '#f97316', borderline: '#eab308', normal: '#22c55e', low: '#3b82f6' }
+                                            const c = statusColors[v.status] || '#94a3b8'
+                                            const displayVal = v.value !== undefined ? `${v.value}${v.unit || ''}` : (v.display_value || '—')
+                                            return (
+                                                <div key={i} style={{ display: 'flex', alignItems: 'baseline', gap: '0.6rem', fontSize: '0.82rem' }}>
+                                                    <span style={{ fontWeight: 800, color: '#e2e8f0', minWidth: 38, fontFamily: 'monospace' }}>{v.label}</span>
+                                                    <span style={{ fontWeight: 700, color: c }}>{displayVal}</span>
+                                                    <span style={{ color: '#64748b', fontSize: '0.75rem' }}>— {v.note}</span>
+                                                </div>
+                                            )
+                                        })}
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* Symptoms Contribution */}
+                            {result.symptoms_contribution?.length > 0 && (
+                                <div style={{ borderBottom: '1px solid rgba(51,65,85,0.5)' }}>
+                                    <div style={{ padding: '0.5rem 1rem', background: 'rgba(15,23,42,0.5)', fontSize: '0.7rem', fontWeight: 800, letterSpacing: '0.08em', color: '#64748b', textTransform: 'uppercase' }}>Symptoms Contribution</div>
+                                    <div style={{ padding: '0.5rem 1rem', display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+                                        {result.symptoms_contribution.map((s, i) => (
+                                            <div key={i} style={{ display: 'flex', gap: '0.5rem', alignItems: 'flex-start', fontSize: '0.82rem' }}>
+                                                <span style={{ color: '#f59e0b', fontWeight: 700, minWidth: 120 }}>{s.symptom}</span>
+                                                <span style={{ color: '#64748b' }}>→</span>
+                                                <span style={{ color: '#94a3b8', lineHeight: 1.4 }}>{s.clinical_signal}</span>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* Risk Factors */}
+                            {result.risk_factors?.length > 0 && (
+                                <div>
+                                    <div style={{ padding: '0.5rem 1rem', background: 'rgba(15,23,42,0.5)', fontSize: '0.7rem', fontWeight: 800, letterSpacing: '0.08em', color: '#64748b', textTransform: 'uppercase' }}>Risk Factor Breakdown</div>
+                                    <div style={{ padding: '0.5rem 1rem', display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+                                        {result.risk_factors.map((rf, i) => {
+                                            const catColors = { vital: '#f87171', symptom: '#fb923c', demographic: '#a78bfa', override: '#ef4444', operational: '#fbbf24' }
+                                            const cc = catColors[rf.category] || '#64748b'
+                                            return (
+                                                <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', fontSize: '0.82rem' }}>
+                                                    <span style={{ fontFamily: 'monospace', fontWeight: 800, color: '#22c55e', minWidth: 36 }}>{rf.points}</span>
+                                                    <span style={{ color: '#e2e8f0', flex: 1 }}>{rf.factor}</span>
+                                                    <span style={{ fontSize: '0.65rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.07em', color: cc, background: `${cc}18`, border: `1px solid ${cc}33`, borderRadius: 4, padding: '0.1rem 0.35rem' }}>{rf.category}</span>
+                                                </div>
+                                            )
+                                        })}
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+
+                        {/* ── Clinical Suggestions ── */}
+                        <ClinicalSuggestionPanel result={result} />
+
                         <div className="modal-footer">
                             <button type="button" className="btn btn-ghost" onClick={printSlip}>🖨️ Print Slip</button>
                             <button type="button" className="btn btn-primary" onClick={onClose}>Done ✓</button>
@@ -281,17 +571,44 @@ function TriageModal({ encounter, onClose, onResult }) {
                     <form onSubmit={handleSubmit}>
                         <div className="form-group">
                             <label style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                <span>Chief Complaint / Hinglish Text (optional)</span>
+                                <span>Nurse Dictation / Chief Complaint <span style={{ color: 'var(--text-muted)', fontWeight: 400, fontSize: '0.72rem' }}>— speaks Hinglish/English</span></span>
                                 <button type="button" className="btn btn-ghost" style={{ padding: '0.2rem 0.5rem', fontSize: '0.75rem', color: listening ? 'var(--danger)' : 'var(--primary)', border: listening ? '1px solid var(--danger)' : '1px solid var(--primary)' }} onClick={toggleVoice}>
                                     {listening ? '🎤 Listening...' : '🎙️ Dictate'}
                                 </button>
                             </label>
                             <textarea
                                 rows={2}
-                                placeholder="e.g. Seena mein dard ho raha hai aur saas lene mein takleef..."
+                                placeholder="e.g. 'BP 120/80, pulse 110 bpm, SpO2 94%, patient has chest pain and is sweating' — vitals auto-extracted"
                                 value={form.raw_input_text}
-                                onChange={e => setForm(f => ({ ...f, raw_input_text: e.target.value }))}
+                                onChange={e => {
+                                    setForm(f => ({ ...f, raw_input_text: e.target.value }))
+                                    extractVitalsFromText(e.target.value)
+                                }}
                             />
+                            {/* With Apply button and preview row */}
+                            {parsedPreview && parsedPreview.length > 0 && (
+                                <div style={{ marginTop: '0.4rem', padding: '0.4rem 0.75rem', background: 'rgba(59,130,246,0.08)', border: '1px solid rgba(59,130,246,0.25)', borderRadius: 8, fontSize: '0.75rem', color: '#93c5fd', display: 'flex', gap: '0.75rem', flexWrap: 'wrap', alignItems: 'center' }}>
+                                    <span style={{ fontWeight: 700, color: '#60a5fa' }}>🔍 Detected:</span>
+                                    {parsedPreview.map((v, i) => <span key={i} style={{ fontWeight: 600, color: v.startsWith('No') ? '#f87171' : '#93c5fd' }}>{v}</span>)}
+                                </div>
+                            )}
+                            {form.raw_input_text.length > 5 && (
+                                <div style={{ marginTop: '0.5rem', display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                                    <button
+                                        type="button"
+                                        onClick={applyVitalsToFields}
+                                        style={{
+                                            padding: '0.35rem 1rem', borderRadius: 8, fontSize: '0.8rem',
+                                            fontWeight: 700, cursor: 'pointer',
+                                            background: 'rgba(99,102,241,0.15)', color: '#818cf8',
+                                            border: '1px solid rgba(99,102,241,0.4)',
+                                        }}
+                                    >
+                                        📥 Apply to Fields
+                                    </button>
+                                    <span style={{ fontSize: '0.72rem', color: '#64748b' }}>Fills HR, BP, SpO₂, Temp, RR, GCS, Pain and Symptoms from your text</span>
+                                </div>
+                            )}
                         </div>
                         <div className="section-label">Vitals</div>
                         <div className="form-row">
@@ -586,7 +903,24 @@ function DoctorAssignmentModal({ encounter, onClose, onAssigned }) {
                                                         </strong>
                                                     </span>
                                                     <span style={{ margin: '0 0.5rem' }}>•</span>
-                                                    Status: <span className="tag" style={{ textTransform: 'capitalize' }}>{doc.availability_state}</span>
+                                                    <span style={{
+                                                        display: 'inline-flex', alignItems: 'center', gap: '0.3rem',
+                                                        padding: '0.1rem 0.5rem', borderRadius: 6, fontSize: '0.7rem', fontWeight: 700,
+                                                        textTransform: 'capitalize',
+                                                        background: doc.availability_state === 'available' ? 'rgba(34,197,94,0.12)'
+                                                            : doc.availability_state === 'in_procedure' ? 'rgba(234,179,8,0.12)'
+                                                                : doc.availability_state === 'emergency' ? 'rgba(249,115,22,0.12)'
+                                                                    : 'rgba(239,68,68,0.1)',
+                                                        color: doc.availability_state === 'available' ? '#22c55e'
+                                                            : doc.availability_state === 'in_procedure' ? '#eab308'
+                                                                : doc.availability_state === 'emergency' ? '#f97316'
+                                                                    : '#f87171',
+                                                        border: `1px solid ${doc.availability_state === 'available' ? 'rgba(34,197,94,0.3)'
+                                                            : doc.availability_state === 'in_procedure' ? 'rgba(234,179,8,0.3)'
+                                                                : 'rgba(239,68,68,0.25)'}`,
+                                                    }}>
+                                                        {doc.availability_state === 'available' ? '✓' : doc.availability_state === 'in_procedure' ? '⚙' : '⚠'} {doc.availability_state.replace(/_/g, ' ')}
+                                                    </span>
                                                 </div>
                                             </div>
                                             {isCurrentDoc ? (
@@ -882,6 +1216,8 @@ function AmbulanceCard({ enc, onExpired }) {
 function QueuePage() {
     const [encounters, setEncounters] = useState([])
     const [loading, setLoading] = useState(true)
+    const [refreshing, setRefreshing] = useState(false)  // for Refresh button spinner
+    const [clearing, setClearing] = useState(false)       // for Clear All button
     const [showNewPatient, setShowNewPatient] = useState(false)
     const [triageEnc, setTriageEnc] = useState(null)
     const [assignEnc, setAssignEnc] = useState(null)
@@ -912,6 +1248,36 @@ function QueuePage() {
         } catch { setEncounters([]) }
         finally { setLoading(false) }
     }, [])
+
+    // Manual refresh with spinner feedback
+    const handleRefresh = useCallback(async () => {
+        setRefreshing(true)
+        try {
+            const data = await EncounterAPI.list({ status: '' })
+            setEncounters(Array.isArray(data) ? data : [])
+        } catch { setEncounters([]) }
+        finally { setRefreshing(false) }
+    }, [])
+
+    // Clear all encounters (soft-delete) — admin gesture
+    const handleClearAll = useCallback(async (e) => {
+        const withPatients = e?.shiftKey
+        const msg = withPatients
+            ? 'This will permanently delete ALL encounters AND simulation patients. Are you sure?'
+            : 'This will soft-delete ALL encounters (patients kept). Are you sure?'
+        if (!window.confirm(msg)) return
+        setClearing(true)
+        try {
+            const result = await AdminAPI.clearEncounters(withPatients ? 'all' : 'encounters')
+            alert(`✅ Cleared ${result.encounters_cleared} encounter(s)${result.patients_cleared > 0 ? ` and ${result.patients_cleared} patient(s)` : ''
+                }.`)
+            await load()
+        } catch (err) {
+            alert('Error clearing: ' + (err.response?.data?.errors?.[0] || err.message))
+        } finally {
+            setClearing(false)
+        }
+    }, [load])
 
     const loadEscalEvents = useCallback(async () => {
         try {
@@ -1003,14 +1369,18 @@ function QueuePage() {
                     responseSeconds: result?.response_time_seconds,
                 }
             }))
+            // CRITICAL: reload encounters so code_blue_acknowledged=true is reflected from server
+            // This prevents the alert from reappearing on next page refresh
+            await load()
             loadEscalEvents()
         } catch (err) {
             const rawMsg = err.response?.data?.errors || err.message
             // Backend sometimes returns array e.g. ["Already acknowledged..."]
             const msgStr = Array.isArray(rawMsg) ? rawMsg.join(', ') : (typeof rawMsg === 'string' ? rawMsg : JSON.stringify(rawMsg))
             if (msgStr.includes('Already acknowledged') || msgStr.includes('no active code blue')) {
-                // Treat as already-done — mark acknowledged locally and refresh
+                // Treat as already-done — mark acknowledged locally and refresh encounters
                 setActiveCodeBlues(prev => ({ ...prev, [encId]: { ...(prev[encId] || {}), acknowledged: true } }))
+                await load() // Refresh server state to prevent re-appearance on reload
                 loadEscalEvents()
             } else {
                 alert('Error: ' + msgStr)
@@ -1031,10 +1401,18 @@ function QueuePage() {
     const [statusFilter, setStatusFilter] = useState('all')
 
     // Compute starvation threshold per encounter
+    // Uses dept threshold if available, otherwise 30 min default
     const isStarving = (enc) => {
         if (['completed', 'cancelled'].includes(enc.status)) return false
         const waitMins = (Date.now() - new Date(enc.created_at)) / 60000
+        // Starvation applies to waiting AND assigned encounters over threshold
         return waitMins > 30
+    }
+
+    // Whether encounter is eligible for reassign (starving, or rejected, regardless of assigned status)
+    const needsReassign = (enc) => {
+        if (['completed', 'cancelled', 'escalated'].includes(enc.status)) return false
+        return isStarving(enc) || enc.rejection_count > 0
     }
 
     if (loading) return <div className="loading-center"><div className="spinner" /><span>Loading queue...</span></div>
@@ -1089,96 +1467,102 @@ function QueuePage() {
                 </div>
             )}
 
-            {/* ─── CODE BLUE Active Banners ─── */}
-            {escalatedEncounters.length > 0 && (
+            {/* ─── CODE BLUE Active Banners (uses server-persisted state) ─── */}
+            {activeQueue.filter(e => e.code_blue_active && !e.code_blue_acknowledged).length > 0 && (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem', marginBottom: '1rem' }}>
-                    {escalatedEncounters.map(enc => {
+                    {activeQueue.filter(e => e.code_blue_active && !e.code_blue_acknowledged).map(enc => {
                         const cb = activeCodeBlues[enc.id]
                         const patientName = cb?.patientName || enc.patient_detail?.name || 'Unknown Patient'
                         const icuBed = cb?.icuBed || 'ICU'
                         const location = [enc.floor && `Floor ${enc.floor}`, enc.room_number && `Room ${enc.room_number}`].filter(Boolean).join(' · ') || null
-                        // isAcknowledged: check in-memory state first, then fall back to live API events
-                        const hasLiveUnacked = liveEscalEvents.some(
-                            e => String(e.encounter_id) === String(enc.id) && !e.acknowledged_at && e.type === 'code_blue'
-                        )
-                        const hasLiveAcked = liveEscalEvents.some(
-                            e => String(e.encounter_id) === String(enc.id) && e.type === 'code_blue'
-                        )
-                        const isAcknowledged = cb?.acknowledged || (hasLiveAcked && !hasLiveUnacked)
-
-                        // Per user request: if acknowledged, it should completely disappear from the active alerts banner
-                        if (isAcknowledged) return null
-
                         return (
                             <div key={enc.id} style={{
-                                background: isAcknowledged ? 'rgba(34,197,94,0.08)' : 'rgba(239,68,68,0.12)',
-                                border: `2px solid ${isAcknowledged ? '#22c55e' : '#ef4444'}`,
-                                borderLeft: `6px solid ${isAcknowledged ? '#22c55e' : '#ef4444'}`,
+                                background: 'rgba(239,68,68,0.12)',
+                                border: '2px solid #ef4444',
+                                borderLeft: '6px solid #ef4444',
                                 borderRadius: 10,
                                 padding: '0.85rem 1.25rem',
                                 display: 'flex', alignItems: 'center', gap: '1rem',
-                                animation: isAcknowledged ? 'none' : 'codeblue-pulse 1s ease-in-out infinite',
+                                animation: 'codeblue-pulse 1s ease-in-out infinite',
                                 transition: 'all 0.4s ease',
                             }}>
-                                <span style={{ fontSize: '1.4rem' }}>{isAcknowledged ? '✅' : '�'}</span>
+                                <span style={{ fontSize: '1.4rem' }}>🚨</span>
                                 <div style={{ flex: 1 }}>
                                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
-                                        <span style={{ fontWeight: 900, color: isAcknowledged ? '#22c55e' : '#ef4444', fontSize: '0.9rem', letterSpacing: '0.1em' }}>
-                                            {isAcknowledged ? '✔ CODE BLUE — ACKNOWLEDGED' : '🚨 CODE BLUE ACTIVE'}
-                                        </span>
+                                        <span style={{ fontWeight: 900, color: '#ef4444', fontSize: '0.9rem', letterSpacing: '0.1em' }}>🚨 CODE BLUE ACTIVE</span>
                                         <span style={{ color: '#f1f5f9', fontWeight: 700, fontSize: '0.9rem' }}>{patientName}</span>
                                         {location && <span style={{ color: '#94a3b8', fontSize: '0.78rem' }}>📍 {location}</span>}
                                     </div>
-                                    {isAcknowledged ? (() => {
-                                        const ackName = cb?.acknowledgedBy || liveEscalEvents.find(e => String(e.encounter_id) === String(enc.id) && e.acknowledged_at)?.acknowledged_by_name || 'Nurse'
-                                        const ackTime = cb?.responseSeconds ?? liveEscalEvents.find(e => String(e.encounter_id) === String(enc.id) && e.acknowledged_at)?.response_time_seconds
-                                        return (
-                                            <div style={{ fontSize: '0.8rem', color: '#86efac', marginTop: '0.3rem', fontWeight: 600 }}>
-                                                Acknowledged by {ackName}
-                                                {ackTime != null && ` · Response time: ${ackTime}s`}
-                                            </div>
-                                        )
-                                    })() : (
-                                        <div style={{ fontSize: '0.78rem', color: '#fca5a5', marginTop: '0.25rem', fontWeight: 600 }}>
-                                            Resuscitation protocol initiated · 🏥 {icuBed} · Requires nurse acknowledgement
-                                        </div>
-                                    )}
-                                </div>
-                                {!isAcknowledged ? (
-                                    <button
-                                        className="btn btn-danger"
-                                        style={{ fontWeight: 800, fontSize: '0.85rem', padding: '0.55rem 1.1rem', position: 'relative', zIndex: 10 }}
-                                        onClick={() => acknowledgeCodeBlue(enc.id)}
-                                    >
-                                        ✓ ACKNOWLEDGE
-                                    </button>
-                                ) : (
-                                    <div style={{
-                                        background: 'rgba(34,197,94,0.15)', border: '1px solid rgba(34,197,94,0.4)',
-                                        borderRadius: 8, padding: '0.4rem 0.9rem',
-                                        fontWeight: 800, fontSize: '0.78rem', color: '#4ade80'
-                                    }}>
-                                        RESPONDED
+                                    <div style={{ fontSize: '0.78rem', color: '#fca5a5', marginTop: '0.25rem', fontWeight: 600 }}>
+                                        Resuscitation protocol initiated · 🏥 {icuBed} · Requires nurse acknowledgement
                                     </div>
-                                )}
+                                </div>
+                                <button
+                                    className="btn btn-danger"
+                                    style={{ fontWeight: 800, fontSize: '0.85rem', padding: '0.55rem 1.1rem', position: 'relative', zIndex: 10 }}
+                                    onClick={() => acknowledgeCodeBlue(enc.id)}
+                                >
+                                    ✓ ACKNOWLEDGE
+                                </button>
                             </div>
                         )
                     })}
                 </div>
             )}
+            {/* Acknowledged Code Blues: faded confirmation */}
+            {activeQueue.filter(e => e.code_blue_active && e.code_blue_acknowledged).map(enc => (
+                <div key={`ack-${enc.id}`} style={{
+                    background: 'rgba(34,197,94,0.07)', border: '1px solid rgba(34,197,94,0.3)',
+                    borderRadius: 10, padding: '0.6rem 1.25rem',
+                    display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '0.5rem',
+                }}>
+                    <span style={{ fontSize: '1.1rem' }}>✅</span>
+                    <div style={{ flex: 1 }}>
+                        <span style={{ fontWeight: 800, color: '#22c55e', fontSize: '0.85rem' }}>✔ CODE BLUE — ACKNOWLEDGED</span>
+                        <span style={{ color: '#f1f5f9', marginLeft: 10, fontWeight: 600, fontSize: '0.85rem' }}>{enc.patient_detail?.name}</span>
+                        {enc.code_blue_acknowledged_by_name && (
+                            <span style={{ color: '#86efac', fontSize: '0.78rem', marginLeft: 10 }}>by {enc.code_blue_acknowledged_by_name}</span>
+                        )}
+                    </div>
+                </div>
+            ))}
 
             <div className="page-header">
                 <div>
                     <div className="page-title">🚨 Active Queue</div>
                     <div className="page-subtitle">{activeQueue.length} active · {incomingAmbulances.length} en route — auto-refreshes every 30s</div>
                 </div>
-                <div style={{ display: 'flex', gap: '0.5rem' }}>
+                <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', alignItems: 'center' }}>
                     {offlineDrafts.length > 0 && (
                         <button className="btn btn-warn" onClick={syncDrafts} disabled={syncing || !isOnline}>
                             {syncing ? 'Syncing...' : `⚠️ Sync ${offlineDrafts.length} Offline Drafts`}
                         </button>
                     )}
-                    <button className="btn btn-ghost" onClick={load}>↻ Refresh</button>
+                    <button
+                        className="btn btn-ghost"
+                        onClick={handleRefresh}
+                        disabled={refreshing}
+                        title="Refresh the queue now"
+                        style={{ minWidth: 95, transition: 'all 0.15s' }}
+                    >
+                        {refreshing ? (
+                            <><span className="spinner" style={{ width: 13, height: 13, borderWidth: 2 }} /> Refreshing...</>
+                        ) : '↻ Refresh'}
+                    </button>
+                    <button
+                        className="btn btn-ghost"
+                        onClick={handleClearAll}
+                        disabled={clearing || encounters.length === 0}
+                        title="Clear all encounters (Shift+Click to also delete patients)"
+                        style={{
+                            color: '#f87171', borderColor: 'rgba(239,68,68,0.35)',
+                            opacity: encounters.length === 0 ? 0.4 : 1,
+                        }}
+                    >
+                        {clearing ? (
+                            <><span className="spinner" style={{ width: 13, height: 13, borderWidth: 2 }} /> Clearing...</>
+                        ) : '🗑 Clear All'}
+                    </button>
                     <button className="btn btn-primary" onClick={() => setShowNewPatient(true)}>+ New Patient</button>
                 </div>
             </div>
@@ -1361,10 +1745,10 @@ function QueuePage() {
                                             /* ── IN PROGRESS: no Triage, no Code Blue ── */
                                         ) : enc.status === 'in_progress' ? (
                                             <div style={{ display: 'flex', gap: '0.35rem', flexWrap: 'wrap' }}>
-                                                {isStarving(enc) && (
+                                                {needsReassign(enc) && (
                                                     <button className="btn btn-warn" style={{ padding: '0.3rem 0.5rem', fontSize: '0.75rem' }}
                                                         onClick={() => reassign(enc)}>
-                                                        <UserCog size={14} /> Reassign
+                                                        <UserCog size={14} /> {enc.rejection_count > 0 ? '⚠ Reassign' : '⏱ Reassign'}
                                                     </button>
                                                 )}
                                                 {enc.assessment_completed && (
@@ -1384,34 +1768,51 @@ function QueuePage() {
                                             /* ── WAITING / ASSIGNED: full actions ── */
                                         ) : (
                                             <div style={{ display: 'flex', gap: '0.35rem', flexWrap: 'wrap' }}>
-                                                <button className="btn btn-ghost" style={{ padding: '0.3rem 0.5rem', fontSize: '0.75rem' }}
-                                                    onClick={() => setTriageEnc(enc)}>
-                                                    <Stethoscope size={14} /> Triage
-                                                </button>
-                                                {!enc.assigned_doctor_detail ? (
-                                                    <button className={enc.rejection_count > 0 ? 'btn btn-danger' : 'btn btn-success'}
-                                                        style={{ padding: '0.3rem 0.5rem', fontSize: '0.75rem' }}
-                                                        onClick={() => suggestAndAssign(enc)}>
-                                                        <UserPlus size={14} /> {enc.rejection_count > 0 ? 'Doc Rejected — Reassign' : 'Assign'}
+                                                {/* Starving Reassign — shown for waiting AND assigned encounters */}
+                                                {isStarving(enc) && enc.assigned_doctor_detail && !enc.code_blue_active && (
+                                                    <button className="btn btn-warn" style={{ padding: '0.3rem 0.5rem', fontSize: '0.75rem' }}
+                                                        onClick={() => reassign(enc)}
+                                                        title={`Patient waiting too long — reassign to a faster doctor`}>
+                                                        <UserCog size={14} /> ⏱ Reassign
                                                     </button>
+                                                )}
+                                                {/* Code Blue blocks Triage + Assign */}
+                                                {enc.code_blue_active && !enc.code_blue_acknowledged ? (
+                                                    <span style={{ fontSize: '0.72rem', fontWeight: 800, color: '#fca5a5', padding: '0.3rem 0.6rem', background: 'rgba(239,68,68,0.12)', border: '1px solid rgba(239,68,68,0.4)', borderRadius: 6 }}>
+                                                        🚨 Code Blue Active
+                                                    </span>
                                                 ) : (
-                                                    <button className="btn btn-ghost" style={{ padding: '0.3rem 0.5rem', fontSize: '0.75rem' }}
-                                                        onClick={() => setLocationEnc(enc)}>
-                                                        📍 Location
-                                                    </button>
+                                                    <>
+                                                        <button className="btn btn-ghost" style={{ padding: '0.3rem 0.5rem', fontSize: '0.75rem' }}
+                                                            onClick={() => setTriageEnc(enc)}>
+                                                            <Stethoscope size={14} /> Triage
+                                                        </button>
+                                                        {!enc.assigned_doctor_detail ? (
+                                                            <button className={enc.rejection_count > 0 ? 'btn btn-danger' : 'btn btn-success'}
+                                                                style={{ padding: '0.3rem 0.5rem', fontSize: '0.75rem' }}
+                                                                onClick={() => suggestAndAssign(enc)}>
+                                                                <UserPlus size={14} /> {enc.rejection_count > 0 ? 'Doc Rejected — Reassign' : 'Assign'}
+                                                            </button>
+                                                        ) : (
+                                                            <button className="btn btn-ghost" style={{ padding: '0.3rem 0.5rem', fontSize: '0.75rem' }}
+                                                                onClick={() => setLocationEnc(enc)}>
+                                                                📍 Location
+                                                            </button>
+                                                        )}
+                                                        {enc.assessment_completed && (
+                                                            <button className="btn btn-indigo" style={{ padding: '0.3rem 0.5rem', fontSize: '0.75rem' }}
+                                                                onClick={() => setReportEnc(enc)}>
+                                                                <FileText size={14} /> Report
+                                                            </button>
+                                                        )}
+                                                        <button
+                                                            className="btn btn-blue"
+                                                            style={{ padding: '0.3rem 0.5rem', fontSize: '0.75rem' }}
+                                                            onClick={() => triggerCodeBlue(enc)}>
+                                                            <AlertTriangle size={14} /> Code Blue
+                                                        </button>
+                                                    </>
                                                 )}
-                                                {enc.assessment_completed && (
-                                                    <button className="btn btn-indigo" style={{ padding: '0.3rem 0.5rem', fontSize: '0.75rem' }}
-                                                        onClick={() => setReportEnc(enc)}>
-                                                        <FileText size={14} /> Report
-                                                    </button>
-                                                )}
-                                                <button
-                                                    className="btn btn-blue"
-                                                    style={{ padding: '0.3rem 0.5rem', fontSize: '0.75rem' }}
-                                                    onClick={() => triggerCodeBlue(enc)}>
-                                                    <AlertTriangle size={14} /> Code Blue
-                                                </button>
                                             </div>
                                         )}
                                     </td>

@@ -68,6 +68,7 @@ class EncounterSerializer(serializers.ModelSerializer):
     assessment_completed = serializers.SerializerMethodField()
     assessment_detail = AssessmentSerializer(source="assessment", read_only=True)
     eta_remaining_seconds = serializers.SerializerMethodField()
+    code_blue_acknowledged_by_name = serializers.SerializerMethodField()
 
     class Meta:
         model = Encounter
@@ -79,6 +80,9 @@ class EncounterSerializer(serializers.ModelSerializer):
             "notes", "is_deleted", "created_at", "updated_at",
             "triage_data", "has_assessment", "assessment_completed", "assessment_detail",
             "eta_minutes", "eta_set_at", "eta_remaining_seconds",
+            "code_blue_active", "code_blue_acknowledged",
+            "code_blue_acknowledged_by", "code_blue_acknowledged_at",
+            "code_blue_acknowledged_by_name",
         ]
         read_only_fields = ["id", "risk_score", "confidence_score", "version", "created_at", "updated_at"]
 
@@ -98,6 +102,11 @@ class EncounterSerializer(serializers.ModelSerializer):
         elapsed = (timezone.now() - obj.eta_set_at).total_seconds()
         remaining = (obj.eta_minutes * 60) - elapsed
         return max(int(remaining), 0)
+
+    def get_code_blue_acknowledged_by_name(self, obj):
+        if obj.code_blue_acknowledged_by:
+            return obj.code_blue_acknowledged_by.full_name
+        return None
 
 
 class AnalyzeTriageSerializer(serializers.Serializer):

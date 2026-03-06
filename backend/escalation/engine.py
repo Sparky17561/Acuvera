@@ -56,6 +56,9 @@ def trigger_escalation(
             enc.priority = "critical"
             enc.status = "escalated"
             enc.version += 1
+            if escalation_type == "code_blue":
+                enc.code_blue_active = True
+                enc.code_blue_acknowledged = False
             enc.save()
 
             # Auto-assign ICU bed for code blue events
@@ -128,9 +131,21 @@ def acknowledge_escalation(event_id: str, acknowledging_nurse=None, request=None
         event.sla_breached = sla_breached
         event.save()
 
-        # NOTE: We do NOT reassign the encounter here.
-        # The encounter stays 'escalated'; the assigned doctor is still responsible.
-        # The nurse acknowledgement is purely an audit/SLA record.
+        # Persist Code Blue acknowledgement on Encounter so it survives page reload
+        if event.type == "code_blue":
+            from core.models import Encounter
+            try:
+                enc = event.encounter
+                enc.code_blue_acknowledged = True
+                enc.code_blue_acknowledged_by = acknowledging_nurse
+                enc.code_blue_acknowledged_at = now
+                enc.save(update_fields=[
+                    "code_blue_acknowledged",
+                    "code_blue_acknowledged_by",
+                    "code_blue_acknowledged_at",
+                ])
+            except Exception as upd_err:
+                logger.warning("Could not update Code Blue ack on encounter: %s", upd_err)
 
         if sla_breached:
             logger.error(

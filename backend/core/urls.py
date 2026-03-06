@@ -11,6 +11,7 @@ from core.assessment_views import AssessmentView, CompleteAssessmentView
 from core.insight_views import InsightView
 from core.simulation_views import SimulateView
 from core.ambulance_views import AmbulancePreRegisterView, IncomingAmbulanceListView
+from core.clear_views import ClearEncountersView
 
 urlpatterns = [
     path("auth/whoami/", WhoAmIView.as_view()),
@@ -44,4 +45,7 @@ urlpatterns = [
 
     # Live ER Simulation
     path("admin/simulate/", SimulateView.as_view()),
+
+    # Admin: Clear all encounters (soft-delete)
+    path("admin/clear-encounters/", ClearEncountersView.as_view()),
 ]

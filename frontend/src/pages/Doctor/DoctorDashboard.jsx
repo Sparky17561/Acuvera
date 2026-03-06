@@ -404,42 +404,68 @@ function AiInsightPanel({ encounterId }) {
             )}
 
             {insight && !error && (
-                <div style={{ padding: '0.9rem 1rem', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                <div style={{ padding: '0.9rem 1rem', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
                     {/* Differentials */}
                     <div>
-                        <div style={{ fontSize: '0.68rem', fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: '0.5rem' }}>
+                        <div style={{ fontSize: '0.68rem', fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: '0.6rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                            <span style={{ width: 3, height: 12, background: '#818cf8', borderRadius: 2, display: 'inline-block' }} />
                             Differential Diagnoses
                         </div>
-                        {(insight.differentials || []).map((d, i) => (
-                            <div key={i} style={{
-                                display: 'flex', alignItems: 'center', gap: '0.5rem',
-                                marginBottom: '0.35rem', fontSize: '0.82rem'
-                            }}>
-                                <span style={{
-                                    width: 8, height: 8, borderRadius: '50%', flexShrink: 0,
-                                    background: confColor(d.confidence)
-                                }} />
-                                <span style={{ color: '#e2e8f0', fontWeight: 500 }}>{d.condition}</span>
-                                <span style={{ fontSize: '0.65rem', color: confColor(d.confidence), fontWeight: 700, marginLeft: 'auto' }}>
-                                    {d.confidence?.toUpperCase()}
-                                </span>
-                            </div>
-                        ))}
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>
+                            {(insight.differentials || []).map((d, i) => {
+                                const cc = confColor(d.confidence)
+                                return (
+                                    <div key={i} style={{
+                                        borderRadius: 8, border: `1px solid ${cc}30`,
+                                        background: `${cc}08`, padding: '0.6rem 0.8rem',
+                                    }}>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: d.reason ? '0.3rem' : 0 }}>
+                                            <span style={{ width: 8, height: 8, borderRadius: '50%', flexShrink: 0, background: cc }} />
+                                            <span style={{ color: '#e2e8f0', fontWeight: 700, fontSize: '0.85rem' }}>{d.condition}</span>
+                                            <span style={{ fontSize: '0.62rem', color: cc, fontWeight: 800, marginLeft: 'auto', textTransform: 'uppercase', letterSpacing: '0.05em', border: `1px solid ${cc}50`, borderRadius: 4, padding: '0.1rem 0.35rem' }}>
+                                                {d.confidence}
+                                            </span>
+                                        </div>
+                                        {d.reason && (
+                                            <div style={{ fontSize: '0.75rem', color: '#94a3b8', lineHeight: 1.5, paddingLeft: '1.1rem' }}>
+                                                {d.reason}
+                                            </div>
+                                        )}
+                                    </div>
+                                )
+                            })}
+                        </div>
                     </div>
                     {/* Investigations */}
                     <div>
-                        <div style={{ fontSize: '0.68rem', fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: '0.5rem' }}>
+                        <div style={{ fontSize: '0.68rem', fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: '0.6rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                            <span style={{ width: 3, height: 12, background: '#6366f1', borderRadius: 2, display: 'inline-block' }} />
                             Suggested Investigations
                         </div>
-                        {(insight.investigations || []).map((inv, i) => (
-                            <div key={i} style={{
-                                fontSize: '0.79rem', color: '#94a3b8', marginBottom: '0.25rem',
-                                display: 'flex', alignItems: 'flex-start', gap: '0.4rem'
-                            }}>
-                                <span style={{ color: '#6366f1', fontWeight: 800, marginTop: 1 }}>{i + 1}.</span>
-                                {inv}
-                            </div>
-                        ))}
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem' }}>
+                            {(insight.investigations || []).map((inv, i) => {
+                                const name = typeof inv === 'string' ? inv : inv?.name
+                                const reason = typeof inv === 'object' ? inv?.reason : null
+                                return (
+                                    <div key={i} style={{
+                                        fontSize: '0.79rem', padding: '0.5rem 0.7rem',
+                                        background: 'rgba(99,102,241,0.07)', borderRadius: 8,
+                                        border: '1px solid rgba(99,102,241,0.15)',
+                                        display: 'flex', flexDirection: 'column', gap: '0.2rem'
+                                    }}>
+                                        <div style={{ display: 'flex', alignItems: 'flex-start', gap: '0.4rem' }}>
+                                            <span style={{ color: '#6366f1', fontWeight: 800, flexShrink: 0, marginTop: 1 }}>{i + 1}.</span>
+                                            <span style={{ color: '#e2e8f0', fontWeight: 600, lineHeight: 1.4 }}>{name}</span>
+                                        </div>
+                                        {reason && (
+                                            <div style={{ fontSize: '0.68rem', color: '#64748b', lineHeight: 1.4, paddingLeft: '1.1rem' }}>
+                                                {reason}
+                                            </div>
+                                        )}
+                                    </div>
+                                )
+                            })}
+                        </div>
                     </div>
                 </div>
             )}

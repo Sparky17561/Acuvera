@@ -65,15 +65,24 @@ function OverviewPage() {
             {/* Stats row */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                 {[
-                    { label: 'Active Patients', value: data?.active_patients ?? 0, icon: '🧑‍⚕️', color: 'text-blue-400', bg: 'bg-blue-400/10', border: 'border-blue-400/20' },
-                    { label: 'Avg Wait', value: data?.avg_wait_time_seconds ? `${Math.floor(data.avg_wait_time_seconds / 60)}m` : '—', icon: '⏱', color: 'text-amber-400', bg: 'bg-amber-400/10', border: 'border-amber-400/20' },
-                    { label: 'Starving', value: data?.starvation_count ?? 0, icon: '⚠️', color: data?.starvation_count > 0 ? 'text-rose-400' : 'text-emerald-400', bg: data?.starvation_count > 0 ? 'bg-rose-400/10' : 'bg-emerald-400/10', border: data?.starvation_count > 0 ? 'border-rose-400/20' : 'border-emerald-400/20' },
-                    { label: 'Overloaded Drs', value: data?.overloaded_doctors ?? 0, icon: '🏥', color: data?.overloaded_doctors > 0 ? 'text-rose-400' : 'text-emerald-400', bg: data?.overloaded_doctors > 0 ? 'bg-rose-400/10' : 'bg-emerald-400/10', border: data?.overloaded_doctors > 0 ? 'border-rose-400/20' : 'border-emerald-400/20' },
+                    { label: 'Active Patients', value: data?.active_patients ?? 0, icon: '🧑‍⚕️', color: 'text-blue-400', bg: 'bg-blue-400/10', border: 'border-blue-400/20', trend: data?.active_patients > 10 ? `${data.active_patients}` : 'Normal', trendUp: data?.active_patients <= 10 },
+                    { label: 'Critical / High', value: `${priority_dist.critical} / ${priority_dist.high}`, icon: '🚨', color: 'text-rose-400', bg: 'bg-rose-400/10', border: 'border-rose-400/20', trend: priority_dist.critical > 0 ? `${priority_dist.critical} Critical` : 'Clear', trendUp: priority_dist.critical === 0 },
+                    { label: 'Avg Wait', value: data?.avg_wait_time_seconds ? `${Math.floor(data.avg_wait_time_seconds / 60)}m` : '—', icon: '⏱', color: 'text-amber-400', bg: 'bg-amber-400/10', border: 'border-amber-400/20', trend: data?.avg_wait_time_seconds > 1800 ? 'Overdue' : 'OK', trendUp: (data?.avg_wait_time_seconds || 0) < 900 },
+                    { label: 'Starving', value: data?.starvation_count ?? 0, icon: '⚠️', color: data?.starvation_count > 0 ? 'text-rose-400' : 'text-emerald-400', bg: data?.starvation_count > 0 ? 'bg-rose-400/10' : 'bg-emerald-400/10', border: data?.starvation_count > 0 ? 'border-rose-400/20' : 'border-emerald-400/20', trend: data?.starvation_count > 0 ? `${data.starvation_count} cases` : 'All OK', trendUp: data?.starvation_count === 0 },
+                    { label: 'Overloaded Drs', value: data?.overloaded_doctors ?? 0, icon: '🏥', color: data?.overloaded_doctors > 0 ? 'text-rose-400' : 'text-emerald-400', bg: data?.overloaded_doctors > 0 ? 'bg-rose-400/10' : 'bg-emerald-400/10', border: data?.overloaded_doctors > 0 ? 'border-rose-400/20' : 'border-emerald-400/20', trend: data?.overloaded_doctors > 0 ? 'Overloaded' : 'Balanced', trendUp: data?.overloaded_doctors === 0 },
+                    { label: 'Doctor Util %', value: data?.total_doctors > 0 ? `${Math.round(((data.total_doctors - (data.overloaded_doctors ?? 0)) / data.total_doctors) * 85 + (data.overloaded_doctors ?? 0) * 15)}%` : '—', icon: '📈', color: 'text-indigo-400', bg: 'bg-indigo-400/10', border: 'border-indigo-400/20', trend: data?.total_doctors > 0 ? `${data.total_doctors} Total` : '—', trendUp: (data?.overloaded_doctors ?? 0) === 0 },
+                    { label: 'Queue Load', value: (data?.starvation_count ?? 0) > 3 || (priority_dist.critical + priority_dist.high) > 5 ? 'High' : (data?.starvation_count ?? 0) > 0 ? 'Medium' : 'Normal', icon: '🌊', color: (data?.starvation_count ?? 0) > 3 ? 'text-rose-400' : (data?.starvation_count ?? 0) > 0 ? 'text-orange-400' : 'text-emerald-400', bg: (data?.starvation_count ?? 0) > 3 ? 'bg-rose-400/10' : 'bg-orange-400/10', border: 'border-orange-400/20', trend: `${data?.active_patients ?? 0} Active`, trendUp: (data?.starvation_count ?? 0) === 0 },
+                    { label: 'Predicted Wait', value: data?.avg_wait_time_seconds ? `${Math.floor((data.avg_wait_time_seconds + (data.starvation_count ?? 0) * 300) / 60)}m` : '—', icon: '🔮', color: 'text-purple-400', bg: 'bg-purple-400/10', border: 'border-purple-400/20', trend: (data?.avg_wait_time_seconds || 0) > 1800 ? 'Long' : 'Short', trendUp: (data?.avg_wait_time_seconds || 0) < 900 },
                 ].map(s => (
                     <div key={s.label} className="bg-slate-900/40 backdrop-blur-xl border border-slate-700/50 rounded-2xl p-6 shadow-xl shadow-black/5 hover:border-slate-600/50 transition-all group">
-                        <div className="flex items-center gap-3 mb-4">
-                            <span className={`p-2 rounded-lg ${s.bg} ${s.border} text-lg group-hover:scale-110 transition-transform`}>{s.icon}</span>
-                            <span className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500">{s.label}</span>
+                        <div className="flex items-center justify-between gap-3 mb-4">
+                            <div className="flex items-center gap-3">
+                                <span className={`p-2 rounded-lg ${s.bg} ${s.border} text-lg group-hover:scale-110 transition-transform`}>{s.icon}</span>
+                                <span className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500">{s.label}</span>
+                            </div>
+                            <span className={`text-[10px] font-black tracking-widest px-2 py-0.5 rounded-md ${s.trendUp ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' : 'bg-rose-500/10 text-rose-400 border border-rose-500/20'}`}>
+                                {s.trendUp ? '↓' : '↑'} {s.trend}
+                            </span>
                         </div>
                         <div className={`text-4xl font-black ${s.color} tracking-tighter`}>{s.value}</div>
                     </div>
@@ -1189,8 +1198,8 @@ function SimulationPage() {
                         {[10, 20, 30, 50].map(n => (
                             <button key={n} onClick={() => setPatientCount(n)}
                                 className={`px-4 py-2.5 rounded-xl text-sm font-black border transition-all active:scale-95 ${patientCount === n
-                                        ? 'bg-violet-500/20 border-violet-500/50 text-violet-300'
-                                        : 'bg-slate-800/50 border-slate-700 text-slate-400 hover:border-slate-600'
+                                    ? 'bg-violet-500/20 border-violet-500/50 text-violet-300'
+                                    : 'bg-slate-800/50 border-slate-700 text-slate-400 hover:border-slate-600'
                                     }`}>{n}</button>
                         ))}
                     </div>
@@ -1256,9 +1265,9 @@ function SimulationPage() {
                             <div className="flex gap-3 flex-wrap">
                                 {Object.entries(result.priority_breakdown).map(([p, count]) => (
                                     <div key={p} className={`flex items-center gap-2 px-4 py-2 rounded-xl border bg-slate-950/40 ${p === 'critical' ? 'border-rose-500/30 text-rose-400' :
-                                            p === 'high' ? 'border-orange-500/30 text-orange-400' :
-                                                p === 'moderate' ? 'border-amber-500/30 text-amber-400' :
-                                                    'border-emerald-500/30 text-emerald-400'
+                                        p === 'high' ? 'border-orange-500/30 text-orange-400' :
+                                            p === 'moderate' ? 'border-amber-500/30 text-amber-400' :
+                                                'border-emerald-500/30 text-emerald-400'
                                         }`}>
                                         <span className="font-black text-xl">{count}</span>
                                         <span className="text-[10px] font-black uppercase tracking-widest opacity-70">{p}</span>

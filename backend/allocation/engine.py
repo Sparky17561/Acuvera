@@ -37,36 +37,52 @@ def compute_doctor_workload(doctor_id: str) -> float:
 
 def get_candidate_doctors(department_id: str, max_cases: int = 6) -> list:
     """
-    Return available doctors sorted by (workload ASC, last_assigned_at ASC).
-    Filters: same dept, available, active, on_shift.
+    Return ALL active doctors in the department, sorted by:
+    1. Availability (available > in_procedure > others)
+    2. Workload (ascending)
+    3. Last assigned (ascending, for fairness)
+
+    No hard filter on availability_state — the nurse should always be able
+    to assign, even if all doctors are busy. The availability state is shown
+    so the nurse can make an informed decision.
     """
     from core.models import User
     now = timezone.now()
 
+    # Include ALL active doctors in the department, regardless of state
     doctors = User.objects.filter(
         department_id=department_id,
         role="doctor",
         is_active=True,
-        availability_state="available",
     ).select_related("department")
+
+    AVAIL_ORDER = {
+        "available": 0,
+        "in_procedure": 1,
+        "emergency": 2,
+        "unavailable": 3,
+        "off_shift": 4,
+    }
 
     candidates = []
     for doc in doctors:
-        # Shift check (if configured)
+        # Skip if explicitly off-shift and shift times are configured
         if doc.shift_start and doc.shift_end:
             if not (doc.shift_start <= now <= doc.shift_end):
                 continue
 
         workload = compute_doctor_workload(str(doc.id))
-        if workload < max_cases * 2:  # soft cap — don't block critical cases
-            candidates.append({
-                "doctor": doc,
-                "workload": workload,
-                "last_assigned_at": doc.last_assigned_at or timezone.datetime.min.replace(tzinfo=timezone.utc),
-            })
+        candidates.append({
+            "doctor": doc,
+            "workload": workload,
+            "avail_rank": AVAIL_ORDER.get(doc.availability_state, 2),
+            "last_assigned_at": doc.last_assigned_at or timezone.datetime.min.replace(tzinfo=timezone.utc),
+        })
 
-    candidates.sort(key=lambda c: (c["workload"], c["last_assigned_at"]))
+    # Sort: available first, then least loaded, then least recently assigned
+    candidates.sort(key=lambda c: (c["avail_rank"], c["workload"], c["last_assigned_at"]))
     return candidates
+
 
 
 def try_assign_doctor(encounter_id: str, doctor_id: str, reason: str = "auto_assign",

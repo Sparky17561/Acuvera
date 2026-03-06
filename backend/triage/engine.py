@@ -180,6 +180,128 @@ def _evaluate_weighted_conditions(vitals: dict, symptoms: list, patient_age: Opt
     return score, reasons
 
 
+# Clinical signal mapping for symptoms
+SYMPTOM_CLINICAL_SIGNALS = {
+    "chest_pain": "Cardiac risk indicator — potential ischemia or ACS",
+    "sweating": "Diaphoresis — autonomic stress response, ACS indicator",
+    "syncope": "Transient loss of consciousness — neurological/cardiac concern",
+    "altered_mental_status": "CNS dysfunction — sepsis, metabolic, or intracranial event",
+    "severe_headache": "May indicate intracranial hypertension or subarachnoid hemorrhage",
+    "shortness_of_breath": "Respiratory distress — potential hypoxia or cardiac decompensation",
+    "seizure": "CNS instability — epilepsy, hypoglycemia, or intracranial event",
+    "stroke_symptoms": "Potential cerebrovascular event — time-critical intervention needed",
+    "severe_abdominal_pain": "May indicate peritonitis, ischemia, or visceral perforation",
+    "trauma": "Mechanical injury — internal hemorrhage or fracture risk",
+}
+
+
+def build_symptoms_contribution(symptoms: list) -> list:
+    """
+    Return list of {symptom, clinical_signal} for each recognized symptom.
+    For display in triage explainability panel.
+    """
+    symptoms_lower = [s.lower().replace(" ", "_") for s in (symptoms or [])]
+    result = []
+    for s in symptoms_lower:
+        signal = SYMPTOM_CLINICAL_SIGNALS.get(s)
+        if signal:
+            result.append({
+                "symptom": s.replace("_", " ").title(),
+                "clinical_signal": signal,
+            })
+        elif s:
+            result.append({
+                "symptom": s.replace("_", " ").title(),
+                "clinical_signal": "Reported by patient/nurse",
+            })
+    return result
+
+
+def build_risk_factors_panel(reasons: list, vitals: dict, symptoms: list,
+                              patient_age, dept_config: dict, aging_bonus: int = 0) -> list:
+    """
+    Build structured risk factor list with point contributions.
+    Each entry: {factor, points, category}
+    """
+    vitals = vitals or {}
+    dept_config = dept_config or {}
+    factors = []
+
+    spo2 = vitals.get("spo2")
+    spo2_threshold = dept_config.get("SpO2_low_threshold", 92)
+    if spo2 is not None and spo2 < spo2_threshold:
+        pts = dept_config.get("SpO2_low", 20)
+        suffix = "Severe hypoxia" if spo2 < 85 else "Hypoxia"
+        factors.append({"factor": f"SpO₂ {spo2}% < {spo2_threshold}% — {suffix}", "points": f"+{pts}", "category": "vital"})
+
+    hr = vitals.get("hr")
+    if hr is not None:
+        hr_high = dept_config.get("HR_high_threshold", 110)
+        if hr > hr_high:
+            pts = dept_config.get("HR_high", 15)
+            factors.append({"factor": f"Tachycardia HR {hr} > {hr_high} bpm", "points": f"+{pts}", "category": "vital"})
+        hr_low = dept_config.get("HR_low_threshold", 55)
+        if hr < hr_low:
+            pts = dept_config.get("HR_low", 15)
+            factors.append({"factor": f"Bradycardia HR {hr} < {hr_low} bpm", "points": f"+{pts}", "category": "vital"})
+
+    sbp = vitals.get("bp_systolic")
+    if sbp is not None:
+        bp_low = dept_config.get("BP_low_threshold", 90)
+        bp_high = dept_config.get("BP_high_threshold", 180)
+        if sbp < bp_low:
+            pts = dept_config.get("BP_low", 20)
+            factors.append({"factor": f"Hypotension BP {sbp} mmHg < {bp_low}", "points": f"+{pts}", "category": "vital"})
+        elif sbp >= bp_high:
+            pts = dept_config.get("BP_high", 10)
+            factors.append({"factor": f"Hypertensive emergency BP {sbp} mmHg", "points": f"+{pts}", "category": "vital"})
+
+    rr = vitals.get("rr")
+    if rr is not None and rr > dept_config.get("RR_high_threshold", 24):
+        pts = dept_config.get("RR_high", 15)
+        factors.append({"factor": f"Tachypnea RR {rr}/min", "points": f"+{pts}", "category": "vital"})
+
+    temp = vitals.get("temp")
+    if temp is not None and temp >= dept_config.get("temp_high_threshold", 101.0):
+        pts = dept_config.get("temp_high", 10)
+        factors.append({"factor": f"Fever {temp}°F", "points": f"+{pts}", "category": "vital"})
+
+    pain = vitals.get("pain_score")
+    if pain is not None and pain >= dept_config.get("pain_threshold", 7):
+        pts = dept_config.get("severe_pain", 10)
+        factors.append({"factor": f"Severe pain score {pain}/10", "points": f"+{pts}", "category": "vital"})
+
+    # Symptom factors
+    symptom_pt_map = {
+        "chest_pain": (20, "symptom"),
+        "sweating": (5, "symptom"),
+        "syncope": (15, "symptom"),
+        "altered_mental_status": (15, "symptom"),
+        "severe_headache": (10, "symptom"),
+        "shortness_of_breath": (15, "symptom"),
+        "seizure": (15, "symptom"),
+        "stroke_symptoms": (20, "symptom"),
+        "severe_abdominal_pain": (10, "symptom"),
+        "trauma": (15, "symptom"),
+    }
+    symptoms_lower = [s.lower().replace(" ", "_") for s in (symptoms or [])]
+    for sym, (default_pts, cat) in symptom_pt_map.items():
+        if sym in symptoms_lower:
+            pts = dept_config.get(f"symptom_{sym}", default_pts)
+            factors.append({"factor": f"{sym.replace('_', ' ').title()} symptom", "points": f"+{pts}", "category": cat})
+
+    # Age factor
+    if patient_age is not None and patient_age >= 60:
+        pts = dept_config.get("age_over_60", 5)
+        factors.append({"factor": f"Age ≥ 60 ({patient_age} years)", "points": f"+{pts}", "category": "demographic"})
+
+    # Aging (wait time) bonus
+    if aging_bonus > 0:
+        factors.append({"factor": f"Extended wait time bonus", "points": f"+{aging_bonus}", "category": "operational"})
+
+    return factors
+
+
 def _map_score_to_priority(score: int) -> str:
     if score >= 71:
         return "critical"
@@ -225,6 +347,9 @@ def compute_triage(encounter_id: str, vitals: dict, symptoms: list, red_flags: d
                       metadata={"override": override_reason})
             logger.info("Hard override triggered for encounter %s: %s", encounter_id, override_reason)
 
+            vitals_panel = build_vitals_panel(vitals, dept_config)
+            symptoms_contribution = build_symptoms_contribution(symptoms)
+
             return {
                 "encounter_id": str(enc.id),
                 "priority": "critical",
@@ -233,6 +358,13 @@ def compute_triage(encounter_id: str, vitals: dict, symptoms: list, red_flags: d
                 "confidence_score": confidence,
                 "reasons": [override_reason],
                 "hard_override": True,
+                "vitals_panel": vitals_panel,
+                "symptoms_contribution": symptoms_contribution,
+                "risk_factors": [{"factor": override_reason, "points": f"+{MAX_RISK_SCORE}", "category": "override"}],
+                "final_priority_explanation": (
+                    f"CRITICAL — Hard override triggered: {override_reason}. "
+                    f"Immediate resuscitation or physician evaluation required."
+                ),
             }
 
         # Step 3: Weighted scoring
@@ -273,6 +405,23 @@ def compute_triage(encounter_id: str, vitals: dict, symptoms: list, red_flags: d
             encounter_id, priority, effective_score, confidence, len(reasons)
         )
 
+        symptoms_contribution = build_symptoms_contribution(symptoms)
+        risk_factors = build_risk_factors_panel(reasons, vitals, symptoms, patient_age, dept_config, aging_bonus)
+        vitals_panel = build_vitals_panel(vitals, dept_config)
+
+        # Build final explanation string
+        top_reasons = "; ".join(reasons[:3]) if reasons else "clinical assessment required"
+        final_explanation = (
+            f"{priority.upper()} priority (score {effective_score}) — {top_reasons}. "
+            f"Confidence {confidence}%."
+        )
+        if priority == "critical":
+            final_explanation += " Immediate physician evaluation required."
+        elif priority == "high":
+            final_explanation += " Urgent assessment needed within 10 minutes."
+        elif priority == "moderate":
+            final_explanation += " Assess within 30 minutes."
+
         return {
             "encounter_id": str(enc.id),
             "priority": priority,
@@ -282,7 +431,10 @@ def compute_triage(encounter_id: str, vitals: dict, symptoms: list, red_flags: d
             "confidence_score": confidence,
             "reasons": reasons,
             "hard_override": False,
-            "vitals_panel": build_vitals_panel(vitals, dept_config),
+            "vitals_panel": vitals_panel,
+            "symptoms_contribution": symptoms_contribution,
+            "risk_factors": risk_factors,
+            "final_priority_explanation": final_explanation,
         }
 
 

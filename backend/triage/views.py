@@ -82,7 +82,11 @@ class AnalyzeTriageView(APIView):
             "hard_override": result.get("hard_override", False),
             "explanation_text": explanation_text,
             "assigned_doctor_id": str(enc.assigned_doctor_id) if enc.assigned_doctor_id else None,
+            # Explainability panel fields
             "vitals_panel": result.get("vitals_panel", []),
+            "symptoms_contribution": result.get("symptoms_contribution", []),
+            "risk_factors": result.get("risk_factors", []),
+            "final_priority_explanation": result.get("final_priority_explanation", explanation_text),
         })
 
     def _call_llm_parse(self, raw_text: str, enc, feature_flags: dict) -> dict | None:

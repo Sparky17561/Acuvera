@@ -148,6 +148,14 @@ class Encounter(models.Model):
     eta_set_at = models.DateTimeField(null=True, blank=True)
     # AI Insight caching — stores GROQ output to avoid repeat calls
     ai_insight_json = models.JSONField(null=True, blank=True)
+    # Code Blue state — persistent so alert doesn't re-appear after page reload
+    code_blue_active = models.BooleanField(default=False)
+    code_blue_acknowledged = models.BooleanField(default=False)
+    code_blue_acknowledged_by = models.ForeignKey(
+        User, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name="code_blue_acks"
+    )
+    code_blue_acknowledged_at = models.DateTimeField(null=True, blank=True)
     is_deleted = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
