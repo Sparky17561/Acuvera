@@ -346,7 +346,7 @@ function OverviewPage() {
               Priority Distribution
             </h3>
           </div>
-          <div className="flex-1 min-h-[220px]">
+          <div className="h-[220px]">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={priorityChartData} barCategoryGap="25%">
                 <CartesianGrid
