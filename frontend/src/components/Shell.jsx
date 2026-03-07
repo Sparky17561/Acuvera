@@ -182,8 +182,12 @@ export default function Shell({ children }) {
         {/* Logo */}
         <div className="px-5 py-6 border-b border-white/20">
           <div className="flex items-center gap-3">
-            <div className="flex items-center justify-center w-10 h-10 rounded-xl bg-gradient-to-br from-blue-600 to-indigo-600 text-white text-lg font-bold shadow-lg shadow-blue-500/30">
-              <span className="text-xl">⚕</span>
+            <div className="flex items-center justify-center w-10 h-10 rounded-xl">
+              <img
+                src="/public/logo.png"
+                alt="Logo"
+                className="w-full h-full object-contain"
+              />
             </div>
             <div>
               <div className="font-black text-lg text-gray-800 tracking-tight">

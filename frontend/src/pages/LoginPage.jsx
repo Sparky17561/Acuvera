@@ -87,7 +87,11 @@ export default function LoginPage() {
         {/* Logo & Header */}
         <div className="text-center mb-8 transform transition-all duration-700">
           <div className="inline-flex items-center justify-center w-16 h-16 bg-white/70 backdrop-blur-xl rounded-2xl mb-4 border border-white/50 shadow-xl group">
-            <span className="text-3xl text-blue-600">⚕</span>
+            <img
+              src="/public/logo.png"
+              alt="Logo"
+              className="w-full h-full object-contain"
+            />
           </div>
           <h1 className="text-4xl font-black bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent tracking-tighter">
             Acuvera
