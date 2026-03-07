@@ -3324,13 +3324,13 @@ function QueuePage() {
                 )}
             {/* Acknowledged Code Blues: faded confirmation */}
             {activeQueue
-                .filter((e) => e.code_blue_active && e.code_blue_acknowledged)
+                .filter((e) => e.code_blue_active && e.code_blue_acknowledged && activeCodeBlues[e.id])
                 .map((enc) => (
                     <div
                         key={`ack-${enc.id}`}
                         style={{
-                            background: "rgba(34,197,94,0.07)",
-                            border: "1px solid rgba(34,197,94,0.3)",
+                            background: "rgba(34,197,94,0.12)",
+                            border: "2px solid #22c55e",
                             borderRadius: 10,
                             padding: "0.6rem 1.25rem",
                             display: "flex",
@@ -3352,7 +3352,7 @@ function QueuePage() {
                             </span>
                             <span
                                 style={{
-                                    color: "#f1f5f9",
+                                    color: "var(--text)",
                                     marginLeft: 10,
                                     fontWeight: 600,
                                     fontSize: "0.85rem",
