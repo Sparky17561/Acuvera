@@ -184,7 +184,7 @@ export default function Shell({ children }) {
           <div className="flex items-center gap-3">
             <div className="flex items-center justify-center w-10 h-10 rounded-xl">
               <img
-                src="/public/logo.svg"
+                src="/logo.svg"
                 alt="Logo"
                 className="w-full h-full object-contain"
               />
