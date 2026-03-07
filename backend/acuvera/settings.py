@@ -87,6 +87,12 @@ REST_FRAMEWORK = {
 CORS_ALLOWED_ORIGINS = config("CORS_ALLOWED_ORIGINS", default="http://localhost:5173,http://localhost:3000", cast=Csv())
 CORS_ALLOW_CREDENTIALS = True
 
+from corsheaders.defaults import default_headers
+CORS_ALLOW_HEADERS = list(default_headers) + [
+    "x-ambulance-key",
+    "x-bypass-user-id",
+]
+
 # ─── Clerk JWT ───────────────────────────────────────────────────────────────
 CLERK_SECRET_KEY = config("CLERK_SECRET_KEY", default="")
 CLERK_PUBLISHABLE_KEY = config("CLERK_PUBLISHABLE_KEY", default="")

@@ -566,6 +566,18 @@ function ClinicalSuggestionPanel({ result }) {
     );
 }
 
+// Constants for Sane Range Validations
+const SANE_RANGES = {
+    hr: { min: 0, max: 300, label: "HR" },
+    spo2: { min: 0, max: 100, label: "SpO₂" },
+    bp_systolic: { min: 0, max: 300, label: "BP Systolic" },
+    bp_diastolic: { min: 0, max: 200, label: "BP Diastolic" },
+    temp: { min: 70, max: 120, label: "Temperature" },
+    rr: { min: 0, max: 100, label: "RR" },
+    gcs: { min: 3, max: 15, label: "GCS" },
+    pain_score: { min: 0, max: 10, label: "Pain Score" },
+};
+
 function TriageModal({ encounter, onClose, onResult }) {
     const [form, setForm] = useState({
         raw_input_text: "",
@@ -801,24 +813,34 @@ function TriageModal({ encounter, onClose, onResult }) {
 
     const handleSubmit = async (e) => {
         e.preventDefault();
+
+        const vitals = {};
+        const numericFields = [
+            "hr",
+            "spo2",
+            "bp_systolic",
+            "bp_diastolic",
+            "temp",
+            "rr",
+            "gcs",
+            "pain_score",
+        ];
+        let hasError = false;
+        for (const f of numericFields) {
+            if (form[f] !== "" && form[f] != null) {
+                const val = parseFloat(form[f]);
+                const range = SANE_RANGES[f];
+                if (range && (val < range.min || val > range.max)) {
+                    hasError = true;
+                }
+                vitals[f] = val;
+            }
+        }
+
+        if (hasError) return;
+
         setLoading(true);
         try {
-            const vitals = {};
-            const numericFields = [
-                "hr",
-                "spo2",
-                "bp_systolic",
-                "bp_diastolic",
-                "temp",
-                "rr",
-                "gcs",
-                "pain_score",
-            ];
-            numericFields.forEach((f) => {
-                if (form[f] !== "" && form[f] != null) {
-                    vitals[f] = parseFloat(form[f]);
-                }
-            });
             const symptoms = form.symptoms
                 .split(",")
                 .map((s) => s.trim())
@@ -1745,20 +1767,33 @@ function TriageModal({ encounter, onClose, onResult }) {
                                 ["rr", "RR (/min)"],
                                 ["gcs", "GCS"],
                                 ["pain_score", "Pain (0-10)"],
-                            ].map(([k, lbl]) => (
-                                <div className="form-group" key={k}>
-                                    <label>{lbl}</label>
-                                    <input
-                                        type="number"
-                                        step="any"
-                                        placeholder="—"
-                                        value={form[k]}
-                                        onChange={(e) =>
-                                            setForm((f) => ({ ...f, [k]: e.target.value }))
-                                        }
-                                    />
-                                </div>
-                            ))}
+                            ].map(([k, lbl]) => {
+                                const valStr = form[k];
+                                const parsed = parseFloat(valStr);
+                                const range = SANE_RANGES[k];
+                                const isInvalid = range && valStr !== "" && valStr != null && (parsed < range.min || parsed > range.max);
+
+                                return (
+                                    <div className="form-group" key={k}>
+                                        <label>{lbl}</label>
+                                        <input
+                                            type="number"
+                                            step="any"
+                                            placeholder="—"
+                                            value={valStr}
+                                            style={isInvalid ? { border: "1px solid var(--critical)", outline: "none", boxShadow: "0 0 0 2px rgba(239, 68, 68, 0.2)" } : {}}
+                                            onChange={(e) =>
+                                                setForm((f) => ({ ...f, [k]: e.target.value }))
+                                            }
+                                        />
+                                        {isInvalid && (
+                                            <div style={{ color: "var(--critical)", fontSize: "0.7rem", marginTop: "0.25rem", fontWeight: 600 }}>
+                                                {`Range: ${range.min} - ${range.max}`}
+                                            </div>
+                                        )}
+                                    </div>
+                                );
+                            })}
                         </div>
                         <div className="form-group">
                             <label>
